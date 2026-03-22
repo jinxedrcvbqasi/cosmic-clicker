@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Cosmic Clicker ⭐ Galactic Mining</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Animated Stars -->
+  <canvas id="starCanvas"></canvas>
+
+  <!-- Nebula bg layer -->
+  <div class="nebula-bg"></div>
+
+  <!-- ── USERNAME MODAL ────────────────────────── -->
+  <div class="modal-overlay" id="usernameModal">
+    <div class="modal-card">
+      <div class="modal-planet">🪐</div>
+      <h1 class="modal-title">COSMIC<br/><span>CLICKER</span></h1>
+      <p class="modal-sub">Enter your pilot name to begin mining the cosmos</p>
+      <div class="input-wrap">
+        <input
+          type="text"
+          id="usernameInput"
+          placeholder="Pilot callsign..."
+          maxlength="18"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
+      <button class="launch-btn" id="startBtn">
+        <span>🚀</span> LAUNCH MISSION
+      </button>
+      <p class="modal-note">Your progress saves automatically to the galaxy.</p>
+    </div>
+  </div>
+
+  <!-- ── GAME WRAPPER ──────────────────────────── -->
+  <div class="game-wrap" id="gameWrap" style="display:none">
+
+    <!-- HEADER -->
+    <header class="g-header">
+      <div class="h-brand">⭐ COSMIC CLICKER</div>
+      <div class="h-center">
+        <div class="online-badge">
+          <span class="pulse-dot"></span>
+          <span id="onlineCount">0</span>&nbsp;online
+        </div>
+      </div>
+      <div class="h-right">
+        <div class="pilot-tag">
+          <span class="pilot-icon">👨‍🚀</span>
+          <span id="headerUsername">Pilot</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN 3-COLUMN LAYOUT -->
+    <main class="g-main" id="gMain">
+
+      <!-- ── LEFT: STATS + LEADERBOARD ── -->
+      <aside class="panel panel-left" id="panelStats">
+        <div class="section-label">MISSION STATS</div>
+        <div class="stat-grid">
+          <div class="stat-box">
+            <div class="stat-lbl">COINS</div>
+            <div class="stat-val gold" id="coinDisplay">0</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-lbl">PER CLICK</div>
+            <div class="stat-val cyan" id="perClickDisplay">1</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-lbl">PER SECOND</div>
+            <div class="stat-val cyan" id="perSecDisplay">0</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-lbl">ALL TIME</div>
+            <div class="stat-val purple" id="allTimeDisplay">0</div>
+          </div>
+        </div>
+
+        <div class="section-label" style="margin-top:24px">🏆 GALACTIC BOARD</div>
+        <div class="leaderboard" id="leaderboard">
+          <div class="lb-loading">Scanning galaxy…</div>
+        </div>
+      </aside>
+
+      <!-- ── CENTER: CLICKER ── -->
+      <section class="clicker-section" id="panelClicker">
+        <div class="coin-area">
+          <div class="coin-rings">
+            <div class="ring r1"></div>
+            <div class="ring r2"></div>
+            <div class="ring r3"></div>
+          </div>
+          <button class="coin-btn" id="mainCoin" aria-label="Click to mine coins">
+            <div class="coin-face">🪙</div>
+          </button>
+        </div>
+
+        <div class="click-hint" id="clickHint">TAP TO MINE</div>
+
+        <div class="auto-bar">
+          <span class="auto-label">⚡ AUTO</span>
+          <span class="auto-val" id="autoDisplay">0</span>
+          <span class="auto-unit">/sec</span>
+        </div>
+
+        <div class="crit-note" id="critNote" style="display:none">💥 CRITICAL HIT!</div>
+
+        <!-- Floating texts portal -->
+        <div id="floatPortal"></div>
+      </section>
+
+      <!-- ── RIGHT: UPGRADES ── -->
+      <aside class="panel panel-right" id="panelUpgrades">
+        <div class="section-label">UPGRADE SHOP</div>
+        <div class="upgrades-list" id="upgradesList">
+          <!-- Populated by JS -->
+        </div>
+      </aside>
+
+    </main>
+
+    <!-- MOBILE BOTTOM TABS -->
+    <nav class="mobile-tabs">
+      <button class="mtab active" data-panel="panelClicker">
+        <span>🪙</span><span class="mtab-lbl">MINE</span>
+      </button>
+      <button class="mtab" data-panel="panelUpgrades">
+        <span>🔧</span><span class="mtab-lbl">SHOP</span>
+      </button>
+      <button class="mtab" data-panel="panelStats">
+        <span>📊</span><span class="mtab-lbl">STATS</span>
+      </button>
+    </nav>
+
+  </div><!-- /game-wrap -->
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Firebase SDKs (compat v9) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="firebase.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
