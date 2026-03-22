@@ -1,4 +1,4 @@
-# cosmic-clicker v2 22.03.26
+# cosmic-clicker v2 22.03.26 https://jinxedrcvbqasi.github.io/cosmic-clicker/
 
 🆕 What’s Added in v2
 🎮 Gameplay
