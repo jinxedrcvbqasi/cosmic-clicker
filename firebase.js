@@ -100,7 +100,8 @@ function fbLoadPlayer(username) {
    PRESENCE — online player counter
 ═══════════════════════════════════════════ */
 
-let presenceRef = null;
+let presenceRef  = null;
+let heartbeatRef = null;
 
 /**
  * Register this player as online. Automatically cleans up on disconnect.
@@ -111,15 +112,35 @@ function fbSetOnline(username) {
   const key = sanitiseKey(username);
   presenceRef = db.ref(`presence/${key}`);
 
-  // Use .info/connected for reliable presence
-  db.ref('.info/connected').on('value', snap => {
-    if (snap.val() === false) return;
-    presenceRef.set({
-      name: username,
-      joinedAt: firebase.database.ServerValue.TIMESTAMP,
-    });
-    presenceRef.onDisconnect().remove();
+  db.ref('.info/connected').on('value', async snap => {
+    if (!snap.val()) return;   // offline — do nothing, onDisconnect will fire
+
+    try {
+      // ① Register cleanup BEFORE writing — critical order
+      await presenceRef.onDisconnect().remove();
+
+      // ② Now write presence
+      await presenceRef.set({
+        name:      username,
+        joinedAt:  firebase.database.ServerValue.TIMESTAMP,
+      });
+
+      console.log('✅ Presence registered for:', username);
+    } catch (e) {
+      console.warn('⚠️ Presence write failed:', e.message,
+        '— Check Firebase DB rules (.write: true)');
+    }
   });
+
+  // Heartbeat: refresh every 60 s to prevent stale entries
+  clearInterval(heartbeatRef);
+  heartbeatRef = setInterval(() => {
+    if (!firebaseReady || !presenceRef) return;
+    presenceRef.set({
+      name:      username,
+      joinedAt:  firebase.database.ServerValue.TIMESTAMP,
+    }).catch(() => {});
+  }, 60_000);
 }
 
 /**
@@ -128,8 +149,20 @@ function fbSetOnline(username) {
  */
 function fbOnOnlineCount(callback) {
   if (!firebaseReady) { callback(1); return; }
+
   db.ref('presence').on('value', snap => {
-    callback(snap.numChildren());
+    // Filter out entries older than 3 minutes (stale ghosts)
+    const now = Date.now();
+    let count = 0;
+    snap.forEach(child => {
+      const d = child.val();
+      if (d && (now - (d.joinedAt || 0)) < 180_000) count++;
+    });
+    // If timestamps aren't available just use numChildren
+    callback(count || snap.numChildren());
+  }, err => {
+    console.warn('⚠️ Presence read failed:', err.message);
+    callback(0);
   });
 }
 
@@ -158,3 +191,4 @@ function fbOnLeaderboard(callback) {
       callback(entries);
     });
 }
+
