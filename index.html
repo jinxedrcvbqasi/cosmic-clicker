@@ -1,154 +1,314 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
   <title>Cosmic Clicker ⭐ Galactic Mining</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
 
-  <!-- Animated Stars -->
-  <canvas id="starCanvas"></canvas>
+<canvas id="starCanvas"></canvas>
+<div class="nebula-bg"></div>
 
-  <!-- Nebula bg layer -->
-  <div class="nebula-bg"></div>
-
-  <!-- ── USERNAME MODAL ────────────────────────── -->
-  <div class="modal-overlay" id="usernameModal">
-    <div class="modal-card">
-      <div class="modal-planet">🪐</div>
-      <h1 class="modal-title">COSMIC<br/><span>CLICKER</span></h1>
-      <p class="modal-sub">Enter your pilot name to begin mining the cosmos</p>
-      <div class="input-wrap">
-        <input
-          type="text"
-          id="usernameInput"
-          placeholder="Pilot callsign..."
-          maxlength="18"
-          autocomplete="off"
-          spellcheck="false"
-        />
-      </div>
-      <button class="launch-btn" id="startBtn">
-        <span>🚀</span> LAUNCH MISSION
-      </button>
-      <p class="modal-note">Your progress saves automatically to the galaxy.</p>
+<!-- ══ USERNAME MODAL ══ -->
+<div class="modal-overlay" id="usernameModal">
+  <div class="modal-card">
+    <div class="modal-planet">🪐</div>
+    <h1 class="modal-title">COSMIC<br/><span>CLICKER</span></h1>
+    <p class="modal-sub">Enter your pilot name to begin mining the cosmos</p>
+    <div class="input-wrap">
+      <input type="text" id="usernameInput" placeholder="Pilot callsign..." maxlength="18" autocomplete="off" spellcheck="false"/>
     </div>
+    <button class="launch-btn" id="startBtn"><span>🚀</span> LAUNCH MISSION</button>
+    <p class="modal-note">Progress saves automatically to the galaxy.</p>
+  </div>
+</div>
+
+<!-- ══ GAME WRAPPER ══ -->
+<div class="game-wrap" id="gameWrap" style="display:none">
+
+  <!-- HEADER -->
+  <header class="g-header">
+    <div class="h-brand">⭐ COSMIC CLICKER</div>
+    <div class="h-center">
+      <div class="online-badge"><span class="pulse-dot"></span><span id="onlineCount">0</span>&nbsp;online</div>
+    </div>
+    <div class="h-right">
+      <button class="icon-btn" id="soundToggle" title="Toggle sound">🔊</button>
+      <div class="pilot-tag">
+        <span class="pilot-icon">👨‍🚀</span>
+        <span id="headerUsername">Pilot</span>
+        <span class="prestige-badge" id="prestigeBadge" style="display:none">✦<span id="prestigeLevel">0</span></span>
+      </div>
+    </div>
+  </header>
+
+  <!-- EVENT BANNER -->
+  <div class="event-banner" id="eventBanner" style="display:none">
+    <span id="eventIcon">☄️</span>
+    <span id="eventText">Event active!</span>
+    <div class="event-bar-wrap"><div class="event-bar" id="eventBar"></div></div>
+    <span class="event-time" id="eventTime">30s</span>
   </div>
 
-  <!-- ── GAME WRAPPER ──────────────────────────── -->
-  <div class="game-wrap" id="gameWrap" style="display:none">
+  <!-- MAIN PANELS -->
+  <main class="g-main" id="gMain">
 
-    <!-- HEADER -->
-    <header class="g-header">
-      <div class="h-brand">⭐ COSMIC CLICKER</div>
-      <div class="h-center">
-        <div class="online-badge">
-          <span class="pulse-dot"></span>
-          <span id="onlineCount">0</span>&nbsp;online
+    <!-- ① MINE -->
+    <section class="g-panel active" id="panelMine">
+      <div class="mine-layout">
+        <!-- Left: stats + leaderboard (desktop only) -->
+        <div class="mine-left hide-mobile">
+          <div class="section-label">MISSION STATS</div>
+          <div class="stat-grid">
+            <div class="stat-box"><div class="stat-lbl">COINS</div><div class="stat-val gold" id="coinDisplay">0</div></div>
+            <div class="stat-box"><div class="stat-lbl">PER CLICK</div><div class="stat-val cyan" id="perClickDisplay">1</div></div>
+            <div class="stat-box"><div class="stat-lbl">PER SEC</div><div class="stat-val cyan" id="perSecDisplay">0</div></div>
+            <div class="stat-box"><div class="stat-lbl">ALL TIME</div><div class="stat-val purple" id="allTimeDisplay">0</div></div>
+          </div>
+          <div class="section-label" style="margin-top:20px">🏆 LEADERBOARD</div>
+          <div class="leaderboard" id="leaderboard"><div class="lb-loading">Scanning galaxy…</div></div>
+        </div>
+
+        <!-- Center: coin -->
+        <div class="mine-center">
+          <!-- Mobile quick stats bar -->
+          <div class="mobile-stats show-mobile">
+            <div class="mstat"><span>💰</span><span class="gold" id="coinDisplayM">0</span></div>
+            <div class="mstat"><span>👆</span><span class="cyan" id="perClickM">1</span></div>
+            <div class="mstat"><span>⚡</span><span class="cyan" id="perSecM">0</span></div>
+          </div>
+
+          <div class="skin-row">
+            <button class="icon-btn sm" id="skinBtn">🎨 SKIN</button>
+          </div>
+
+          <div class="coin-area">
+            <canvas id="particleCanvas"></canvas>
+            <div class="coin-rings">
+              <div class="ring r1"></div>
+              <div class="ring r2"></div>
+              <div class="ring r3"></div>
+            </div>
+            <button class="coin-btn" id="mainCoin" aria-label="Click to mine coins">
+              <div class="coin-face" id="coinFace">🪙</div>
+            </button>
+          </div>
+
+          <div class="click-hint">TAP TO MINE</div>
+
+          <div class="auto-bar">
+            <span class="auto-label">⚡ AUTO</span>
+            <span class="auto-val" id="autoDisplay">0</span>
+            <span class="auto-unit">/sec</span>
+            <span class="boost-pill" id="boostPill" style="display:none">🔥 BOOSTED</span>
+          </div>
+
+          <div id="prestigeWrap" style="display:none">
+            <button class="prestige-btn" id="prestigeBtn">
+              ♻️ PRESTIGE — Reset for ×<span id="prestigeMultShow">1.5</span>
+            </button>
+          </div>
+
+          <div id="floatPortal"></div>
+        </div>
+
+        <!-- Right: upgrades (desktop only) -->
+        <div class="mine-right hide-mobile">
+          <div class="section-label">UPGRADE SHOP</div>
+          <div class="upgrades-list" id="upgradesListDesktop"></div>
         </div>
       </div>
-      <div class="h-right">
-        <div class="pilot-tag">
-          <span class="pilot-icon">👨‍🚀</span>
-          <span id="headerUsername">Pilot</span>
-        </div>
-      </div>
-    </header>
+    </section>
 
-    <!-- MAIN 3-COLUMN LAYOUT -->
-    <main class="g-main" id="gMain">
-
-      <!-- ── LEFT: STATS + LEADERBOARD ── -->
-      <aside class="panel panel-left" id="panelStats">
-        <div class="section-label">MISSION STATS</div>
-        <div class="stat-grid">
-          <div class="stat-box">
-            <div class="stat-lbl">COINS</div>
-            <div class="stat-val gold" id="coinDisplay">0</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-lbl">PER CLICK</div>
-            <div class="stat-val cyan" id="perClickDisplay">1</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-lbl">PER SECOND</div>
-            <div class="stat-val cyan" id="perSecDisplay">0</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-lbl">ALL TIME</div>
-            <div class="stat-val purple" id="allTimeDisplay">0</div>
-          </div>
-        </div>
-
-        <div class="section-label" style="margin-top:24px">🏆 GALACTIC BOARD</div>
-        <div class="leaderboard" id="leaderboard">
-          <div class="lb-loading">Scanning galaxy…</div>
-        </div>
-      </aside>
-
-      <!-- ── CENTER: CLICKER ── -->
-      <section class="clicker-section" id="panelClicker">
-        <div class="coin-area">
-          <div class="coin-rings">
-            <div class="ring r1"></div>
-            <div class="ring r2"></div>
-            <div class="ring r3"></div>
-          </div>
-          <button class="coin-btn" id="mainCoin" aria-label="Click to mine coins">
-            <div class="coin-face">🪙</div>
-          </button>
-        </div>
-
-        <div class="click-hint" id="clickHint">TAP TO MINE</div>
-
-        <div class="auto-bar">
-          <span class="auto-label">⚡ AUTO</span>
-          <span class="auto-val" id="autoDisplay">0</span>
-          <span class="auto-unit">/sec</span>
-        </div>
-
-        <div class="crit-note" id="critNote" style="display:none">💥 CRITICAL HIT!</div>
-
-        <!-- Floating texts portal -->
-        <div id="floatPortal"></div>
-      </section>
-
-      <!-- ── RIGHT: UPGRADES ── -->
-      <aside class="panel panel-right" id="panelUpgrades">
+    <!-- ② SHOP (mobile) -->
+    <section class="g-panel" id="panelShop">
+      <div class="panel-scroll">
         <div class="section-label">UPGRADE SHOP</div>
-        <div class="upgrades-list" id="upgradesList">
-          <!-- Populated by JS -->
+        <div class="upgrades-list" id="upgradesListMobile"></div>
+      </div>
+    </section>
+
+    <!-- ③ QUESTS -->
+    <section class="g-panel" id="panelQuests">
+      <div class="two-col-layout">
+        <div>
+          <div class="section-label">📋 DAILY QUESTS</div>
+          <div id="questsList"></div>
+          <div class="section-label" style="margin-top:24px">☄️ EVENTS LOG</div>
+          <div id="eventsLog"><p class="empty-note">No events yet. Hang tight!</p></div>
         </div>
-      </aside>
+        <div>
+          <div class="section-label">🏅 ACHIEVEMENTS</div>
+          <div id="achievementsList"></div>
+        </div>
+      </div>
+    </section>
 
-    </main>
+    <!-- ④ SOCIAL -->
+    <section class="g-panel" id="panelSocial">
+      <div class="social-layout">
+        <div class="social-left">
+          <div class="section-label">💬 GALAXY CHAT</div>
+          <div class="chat-box" id="chatMessages"><div class="chat-empty">No messages yet…</div></div>
+          <div class="chat-input-row">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Message the galaxy..." maxlength="80" autocomplete="off"/>
+            <button class="chat-send" id="chatSendBtn">➤</button>
+          </div>
+        </div>
+        <div class="social-right">
+          <div class="section-label">🧑‍🚀 ONLINE PILOTS</div>
+          <div id="onlinePlayers"><div class="lb-loading">Loading…</div></div>
 
-    <!-- MOBILE BOTTOM TABS -->
-    <nav class="mobile-tabs">
-      <button class="mtab active" data-panel="panelClicker">
-        <span>🪙</span><span class="mtab-lbl">MINE</span>
-      </button>
-      <button class="mtab" data-panel="panelUpgrades">
-        <span>🔧</span><span class="mtab-lbl">SHOP</span>
-      </button>
-      <button class="mtab" data-panel="panelStats">
-        <span>📊</span><span class="mtab-lbl">STATS</span>
-      </button>
-    </nav>
+          <div class="section-label" style="margin-top:20px">⚔️ MY CLAN</div>
+          <div id="clanSection">
+            <div id="clanInClan" style="display:none">
+              <div class="clan-name-display" id="clanNameDisplay">—</div>
+              <button class="small-btn danger" id="leaveClanBtn">Leave Clan</button>
+            </div>
+            <div id="clanNoClan">
+              <div class="clan-row">
+                <input class="clan-input" type="text" id="clanCreateInput" placeholder="New clan name..." maxlength="20"/>
+                <button class="small-btn" id="createClanBtn">Create (500🪙)</button>
+              </div>
+              <div class="clan-row">
+                <input class="clan-input" type="text" id="clanJoinInput" placeholder="Clan to join..." maxlength="20"/>
+                <button class="small-btn" id="joinClanBtn">Join</button>
+              </div>
+            </div>
+          </div>
 
-  </div><!-- /game-wrap -->
+          <div class="section-label" style="margin-top:20px">🏰 CLAN RANKINGS</div>
+          <div id="clanLeaderboard"><div class="lb-loading">Loading…</div></div>
+        </div>
+      </div>
+    </section>
 
-  <!-- Toast notification -->
-  <div class="toast" id="toast"></div>
+    <!-- ⑤ STATS -->
+    <section class="g-panel" id="panelStats">
+      <div class="two-col-layout">
+        <div>
+          <div class="section-label">📈 COINS OVER TIME</div>
+          <div class="graph-wrap"><canvas id="statsGraph"></canvas></div>
+          <div class="section-label" style="margin-top:20px">📊 DETAILED STATS</div>
+          <div id="detailedStats"></div>
+        </div>
+        <div>
+          <div class="section-label">🏆 LEADERBOARD</div>
+          <div class="leaderboard" id="leaderboardStats"><div class="lb-loading">Scanning…</div></div>
+        </div>
+      </div>
+    </section>
 
-  <!-- Firebase SDKs (compat v9) -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="firebase.js"></script>
-  <script src="script.js"></script>
+  </main>
+
+  <!-- MOBILE BOTTOM TABS -->
+  <nav class="mobile-tabs">
+    <button class="mtab active" data-panel="panelMine"><span>🪙</span><span class="mtab-lbl">MINE</span></button>
+    <button class="mtab" data-panel="panelShop"><span>🔧</span><span class="mtab-lbl">SHOP</span></button>
+    <button class="mtab" data-panel="panelQuests"><span>📋</span><span class="mtab-lbl">QUESTS</span></button>
+    <button class="mtab notif-tab" data-panel="panelSocial"><span>💬</span><span class="mtab-lbl">SOCIAL</span><span class="notif-dot" id="socialNotifDot" style="display:none"></span></button>
+    <button class="mtab" data-panel="panelStats"><span>📊</span><span class="mtab-lbl">STATS</span></button>
+  </nav>
+
+</div><!-- /game-wrap -->
+
+<!-- ══ MODALS ══ -->
+
+<!-- Skin selector -->
+<div class="modal-overlay hidden" id="skinModal">
+  <div class="modal-card">
+    <button class="modal-close" id="skinClose">✕</button>
+    <h2 class="modal-title-sm">🎨 COIN SKINS</h2>
+    <p class="modal-sub">Unlock new looks for your coin</p>
+    <div class="skins-grid" id="skinsGrid"></div>
+  </div>
+</div>
+
+<!-- Prestige confirm -->
+<div class="modal-overlay hidden" id="prestigeModal">
+  <div class="modal-card">
+    <button class="modal-close" id="prestigeClose">✕</button>
+    <div style="font-size:52px;margin-bottom:12px">♻️</div>
+    <h2 class="modal-title-sm">PRESTIGE RESET</h2>
+    <p class="modal-sub">Coins and upgrades reset.<br/>You gain a permanent multiplier bonus.</p>
+    <div class="prestige-info-box">
+      <div>Current level: <strong id="curPrestigeLvl">0</strong></div>
+      <div>New multiplier: <strong id="newPrestigeMult" style="color:var(--gold)">×1.5</strong></div>
+    </div>
+    <button class="launch-btn" id="confirmPrestigeBtn" style="margin-top:20px">♻️ CONFIRM PRESTIGE</button>
+  </div>
+</div>
+
+<!-- Duel challenge -->
+<div class="modal-overlay hidden" id="duelModal">
+  <div class="modal-card">
+    <div style="font-size:52px;margin-bottom:12px">🥊</div>
+    <h2 class="modal-title-sm">DUEL CHALLENGE!</h2>
+    <p class="modal-sub"><strong id="duelChallenger">Player</strong> challenges you to a 30-second click battle!</p>
+    <p class="modal-sub" style="color:var(--gold);margin-top:6px">Winner gets <strong id="duelPrize">500</strong> 🪙</p>
+    <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;justify-content:center">
+      <button class="launch-btn green-btn" id="acceptDuelBtn">⚔️ ACCEPT</button>
+      <button class="launch-btn red-btn" id="declineDuelBtn">✕ DECLINE</button>
+    </div>
+  </div>
+</div>
+
+<!-- Duel active -->
+<div class="modal-overlay hidden" id="duelActiveModal">
+  <div class="modal-card">
+    <h2 class="modal-title-sm" style="color:var(--gold)">⚔️ DUEL IN PROGRESS</h2>
+    <div class="duel-countdown" id="duelCountdown">30</div>
+    <div class="duel-scores">
+      <div class="duel-score-side">
+        <div class="duel-score-name" id="duelMyName">You</div>
+        <div class="duel-score-val" id="duelMyScore">0</div>
+      </div>
+      <div class="duel-vs">VS</div>
+      <div class="duel-score-side">
+        <div class="duel-score-name" id="duelOppName">Opp</div>
+        <div class="duel-score-val" id="duelOppScore">0</div>
+      </div>
+    </div>
+    <p class="modal-sub">Tap as fast as you can!</p>
+    <button class="duel-coin-btn" id="duelCoinBtn">🪙</button>
+  </div>
+</div>
+
+<!-- Gift -->
+<div class="modal-overlay hidden" id="giftModal">
+  <div class="modal-card">
+    <button class="modal-close" id="giftClose">✕</button>
+    <div style="font-size:52px;margin-bottom:12px">🎁</div>
+    <h2 class="modal-title-sm">SEND GIFT</h2>
+    <p class="modal-sub">To: <strong id="giftTarget">Player</strong></p>
+    <div class="input-wrap" style="margin-top:16px">
+      <input type="number" id="giftAmount" placeholder="Amount of coins..." min="10"/>
+    </div>
+    <p class="modal-sub" id="giftBalance" style="margin-top:6px;color:var(--gold)"></p>
+    <button class="launch-btn" id="confirmGiftBtn" style="margin-top:12px">🎁 SEND GIFT</button>
+  </div>
+</div>
+
+<!-- Achievement popup -->
+<div class="ach-popup" id="achPopup" style="display:none">
+  <div class="ach-pop-icon" id="achPopIcon">🏅</div>
+  <div>
+    <div class="ach-pop-title">ACHIEVEMENT UNLOCKED</div>
+    <div class="ach-pop-name" id="achPopName">—</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="firebase.js"></script>
+<script src="script.js"></script>
 </body>
 </html>
+
