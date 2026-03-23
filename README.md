@@ -1,4 +1,4 @@
-# cosmic-clicker v2 22.03.26 https://jinxedrcvbqasi.github.io/cosmic-clicker/
+# cosmic-clicker v4 23.03.26 https://jinxedrcvbqasi.github.io/cosmic-clicker/
 
 🚀 Project Update Changelog
 
