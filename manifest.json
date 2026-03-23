@@ -1,0 +1,16 @@
+{
+  "name": "Cosmic Clicker",
+  "short_name": "CosmicClicker",
+  "description": "Galactic mining idle clicker v4",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#03030f",
+  "theme_color": "#00d4ff",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ],
+  "categories": ["games", "entertainment"]
+}
+

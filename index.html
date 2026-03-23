@@ -3,156 +3,290 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
-  <title>Cosmic Clicker ⭐ Galactic Mining</title>
+  <meta name="theme-color" content="#00d4ff"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <title>Cosmic Clicker ⭐</title>
+  <link rel="manifest" href="manifest.json"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
-
 <canvas id="starCanvas"></canvas>
-<div class="nebula-bg"></div>
+<div class="nebula-bg" id="nebulaeBg"></div>
 
-<!-- ══ USERNAME MODAL ══ -->
-<div class="modal-overlay" id="usernameModal">
+<!-- AUTH MODAL -->
+<div class="modal-overlay" id="authModal">
   <div class="modal-card">
     <div class="modal-planet">🪐</div>
     <h1 class="modal-title">COSMIC<br/><span>CLICKER</span></h1>
-    <p class="modal-sub">Enter your pilot name to begin mining the cosmos</p>
+    <p class="modal-sub" data-i18n="orContinueWith">or continue with</p>
     <div class="input-wrap">
-      <input type="text" id="usernameInput" placeholder="Pilot callsign..." maxlength="18" autocomplete="off" spellcheck="false"/>
+      <input type="text" id="usernameInput" data-i18n-ph="pilotPlaceholder" maxlength="18" autocomplete="off" spellcheck="false"/>
     </div>
-    <button class="launch-btn" id="startBtn"><span>🚀</span> LAUNCH MISSION</button>
-    <p class="modal-note">Progress saves automatically to the galaxy.</p>
+    <button class="launch-btn" id="startBtn" data-i18n="launch">🚀 LAUNCH MISSION</button>
+    <div class="auth-divider"><span>or</span></div>
+    <button class="google-btn" id="googleBtn"><span data-i18n="signInGoogle">🔵 Sign in with Google</span></button>
+    <p class="modal-note">Your progress syncs to the galaxy.</p>
   </div>
 </div>
 
-<!-- ══ GAME WRAPPER ══ -->
-<div class="game-wrap" id="gameWrap" style="display:none">
+<!-- OFFLINE MODAL -->
+<div class="modal-overlay hidden" id="offlineModal">
+  <div class="modal-card">
+    <div style="font-size:52px;margin-bottom:12px">💤</div>
+    <h2 class="modal-title-sm" data-i18n="welcomeBackTitle">WELCOME BACK!</h2>
+    <p class="modal-sub" data-i18n="offlineDesc"></p>
+    <div class="offline-info-box">
+      <div class="offline-row"><span data-i18n="awayFor">Away for</span><strong id="offlineTime">—</strong></div>
+      <div class="offline-row"><span data-i18n="coinsEarned">Coins earned</span><strong id="offlineCoins" style="color:var(--gold)">—</strong></div>
+    </div>
+    <button class="launch-btn" id="claimOfflineBtn" data-i18n="collectOffline" style="margin-top:20px">💰 COLLECT!</button>
+  </div>
+</div>
 
-  <!-- HEADER -->
+<!-- NPC TRADER MODAL -->
+<div class="modal-overlay hidden" id="npcModal">
+  <div class="modal-card">
+    <div class="npc-avatar" id="npcAvatar">🤖</div>
+    <h2 class="modal-title-sm" data-i18n="traderTitle">SPACE TRADER</h2>
+    <p class="modal-sub" id="npcDesc">A deal for you!</p>
+    <div class="npc-deal-box" id="npcDealBox"></div>
+    <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;justify-content:center">
+      <button class="launch-btn green-btn" id="acceptNpcBtn" data-i18n="accept">ACCEPT DEAL</button>
+      <button class="launch-btn red-btn" id="declineNpcBtn" data-i18n="decline">NO THANKS</button>
+    </div>
+    <p class="modal-note" id="npcTimer">Offer expires in 60s</p>
+  </div>
+</div>
+
+<!-- GAME WRAPPER -->
+<div class="game-wrap" id="gameWrap" style="display:none">
   <header class="g-header">
-    <div class="h-brand">⭐ COSMIC CLICKER</div>
+    <div class="h-brand">⭐ COSMIC</div>
     <div class="h-center">
-      <div class="online-badge"><span class="pulse-dot"></span><span id="onlineCount">0</span>&nbsp;online</div>
+      <div class="online-badge"><span class="pulse-dot"></span><span id="onlineCount">0</span>&nbsp;<span data-i18n="online">online</span></div>
     </div>
     <div class="h-right">
-      <button class="icon-btn" id="soundToggle" title="Toggle sound">🔊</button>
+      <div class="season-indicator" id="seasonIndicator" title="Current Season">☀️</div>
+      <button class="icon-btn" id="soundToggle">🔊</button>
+      <button class="icon-btn" id="notifBtn">🔔</button>
+      <button class="icon-btn" id="langToggle">EN</button>
       <div class="pilot-tag">
-        <span class="pilot-icon">👨‍🚀</span>
-        <span id="headerUsername">Pilot</span>
+        <span>👨‍🚀</span><span id="headerUsername">Pilot</span>
         <span class="prestige-badge" id="prestigeBadge" style="display:none">✦<span id="prestigeLevel">0</span></span>
       </div>
     </div>
   </header>
 
-  <!-- EVENT BANNER -->
   <div class="event-banner" id="eventBanner" style="display:none">
-    <span id="eventIcon">☄️</span>
-    <span id="eventText">Event active!</span>
+    <span id="eventIcon">☄️</span><span id="eventText">Event!</span>
     <div class="event-bar-wrap"><div class="event-bar" id="eventBar"></div></div>
     <span class="event-time" id="eventTime">30s</span>
   </div>
+  <div class="raid-strip" id="raidStrip" style="display:none">
+    <span>🌍</span><span id="raidStripText">RAID ACTIVE</span>
+    <div class="raid-strip-bar-wrap"><div class="raid-strip-bar" id="raidStripBar"></div></div>
+    <button class="raid-join-btn" id="raidJoinBtn">JOIN</button>
+  </div>
+  <div class="broadcast-strip" id="broadcastStrip" style="display:none">
+    <span>📢</span><span id="broadcastMsg">—</span>
+  </div>
 
-  <!-- MAIN PANELS -->
-  <main class="g-main" id="gMain">
-
-    <!-- ① MINE -->
+  <main class="g-main">
+    <!-- MINE -->
     <section class="g-panel active" id="panelMine">
       <div class="mine-layout">
-        <!-- Left: stats + leaderboard (desktop only) -->
         <div class="mine-left hide-mobile">
-          <div class="section-label">MISSION STATS</div>
+          <div class="section-label" data-i18n="mine">MINE STATS</div>
           <div class="stat-grid">
-            <div class="stat-box"><div class="stat-lbl">COINS</div><div class="stat-val gold" id="coinDisplay">0</div></div>
-            <div class="stat-box"><div class="stat-lbl">PER CLICK</div><div class="stat-val cyan" id="perClickDisplay">1</div></div>
-            <div class="stat-box"><div class="stat-lbl">PER SEC</div><div class="stat-val cyan" id="perSecDisplay">0</div></div>
-            <div class="stat-box"><div class="stat-lbl">ALL TIME</div><div class="stat-val purple" id="allTimeDisplay">0</div></div>
+            <div class="stat-box"><div class="stat-lbl" data-i18n="coins">COINS</div><div class="stat-val gold" id="coinDisplay">0</div></div>
+            <div class="stat-box"><div class="stat-lbl" data-i18n="perClick">PER CLICK</div><div class="stat-val cyan" id="perClickDisplay">1</div></div>
+            <div class="stat-box"><div class="stat-lbl" data-i18n="perSec">PER SEC</div><div class="stat-val cyan" id="perSecDisplay">0</div></div>
+            <div class="stat-box"><div class="stat-lbl" data-i18n="allTime">ALL TIME</div><div class="stat-val purple" id="allTimeDisplay">0</div></div>
           </div>
-          <div class="section-label" style="margin-top:20px">🏆 LEADERBOARD</div>
-          <div class="leaderboard" id="leaderboard"><div class="lb-loading">Scanning galaxy…</div></div>
+          <div class="section-label" style="margin-top:16px">🏆 LEADERBOARD</div>
+          <div class="leaderboard" id="leaderboard"><div class="lb-loading">Scanning…</div></div>
         </div>
-
-        <!-- Center: coin -->
         <div class="mine-center">
-          <!-- Mobile quick stats bar -->
           <div class="mobile-stats show-mobile">
             <div class="mstat"><span>💰</span><span class="gold" id="coinDisplayM">0</span></div>
             <div class="mstat"><span>👆</span><span class="cyan" id="perClickM">1</span></div>
             <div class="mstat"><span>⚡</span><span class="cyan" id="perSecM">0</span></div>
           </div>
-
-          <div class="skin-row">
-            <button class="icon-btn sm" id="skinBtn">🎨 SKIN</button>
-          </div>
-
+          <div class="skin-row"><button class="icon-btn sm" id="skinBtn">🎨 SKIN</button></div>
           <div class="coin-area">
             <canvas id="particleCanvas"></canvas>
-            <div class="coin-rings">
-              <div class="ring r1"></div>
-              <div class="ring r2"></div>
-              <div class="ring r3"></div>
-            </div>
-            <button class="coin-btn" id="mainCoin" aria-label="Click to mine coins">
-              <div class="coin-face" id="coinFace">🪙</div>
-            </button>
+            <div class="coin-rings"><div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div></div>
+            <button class="coin-btn" id="mainCoin"><div class="coin-face" id="coinFace">🪙</div></button>
           </div>
-
-          <div class="click-hint">TAP TO MINE</div>
-
+          <div class="click-hint" data-i18n="tapToMine">TAP TO MINE</div>
           <div class="auto-bar">
-            <span class="auto-label">⚡ AUTO</span>
-            <span class="auto-val" id="autoDisplay">0</span>
-            <span class="auto-unit">/sec</span>
-            <span class="boost-pill" id="boostPill" style="display:none">🔥 BOOSTED</span>
+            <span class="auto-label">⚡ AUTO</span><span class="auto-val" id="autoDisplay">0</span><span class="auto-unit">/sec</span>
+            <span class="boost-pill" id="boostPill" style="display:none">🔥 BOOST</span>
           </div>
-
           <div id="prestigeWrap" style="display:none">
-            <button class="prestige-btn" id="prestigeBtn">
-              ♻️ PRESTIGE — Reset for ×<span id="prestigeMultShow">1.5</span>
-            </button>
+            <button class="prestige-btn" id="prestigeBtn">♻️ <span data-i18n="prestige">PRESTIGE</span> — ×<span id="prestigeMultShow">1.5</span></button>
           </div>
-
           <div id="floatPortal"></div>
         </div>
-
-        <!-- Right: upgrades (desktop only) -->
         <div class="mine-right hide-mobile">
-          <div class="section-label">UPGRADE SHOP</div>
+          <div class="section-label" data-i18n="upgradeShop">UPGRADE SHOP</div>
           <div class="upgrades-list" id="upgradesListDesktop"></div>
         </div>
       </div>
     </section>
 
-    <!-- ② SHOP (mobile) -->
+    <!-- SHOP -->
     <section class="g-panel" id="panelShop">
       <div class="panel-scroll">
-        <div class="section-label">UPGRADE SHOP</div>
+        <div class="section-label" data-i18n="upgradeShop">UPGRADE SHOP</div>
         <div class="upgrades-list" id="upgradesListMobile"></div>
       </div>
     </section>
 
-    <!-- ③ QUESTS -->
-    <section class="g-panel" id="panelQuests">
+    <!-- TECH TREE -->
+    <section class="g-panel" id="panelTech">
       <div class="two-col-layout">
         <div>
-          <div class="section-label">📋 DAILY QUESTS</div>
-          <div id="questsList"></div>
-          <div class="section-label" style="margin-top:24px">☄️ EVENTS LOG</div>
-          <div id="eventsLog"><p class="empty-note">No events yet. Hang tight!</p></div>
+          <div class="section-label" data-i18n="techTree">🌳 TECH TREE</div>
+          <p class="panel-sub" data-i18n="techDesc">Research permanent upgrades</p>
+          <div id="techTree"></div>
         </div>
         <div>
-          <div class="section-label">🏅 ACHIEVEMENTS</div>
+          <div class="section-label">🗺️ GALAXY MAP</div>
+          <p class="panel-sub">Explore planets for bonuses</p>
+          <div class="galaxy-map" id="galaxyMap"></div>
+          <div class="section-label" style="margin-top:16px">🏅 ACHIEVEMENTS</div>
           <div id="achievementsList"></div>
         </div>
       </div>
     </section>
 
-    <!-- ④ SOCIAL -->
+    <!-- ALCHEMY -->
+    <section class="g-panel" id="panelAlchemy">
+      <div class="two-col-layout">
+        <div>
+          <div class="section-label" data-i18n="alchemy">⚗️ ALCHEMY</div>
+          <p class="panel-sub">Combine resources into powerful artifacts</p>
+          <div class="resources-row" id="resourcesRow"></div>
+          <div class="section-label" style="margin-top:16px">FORGE ARTIFACTS</div>
+          <div class="craft-list" id="craftList"></div>
+        </div>
+        <div>
+          <div class="section-label" data-i18n="artifacts">🔮 ARTIFACTS</div>
+          <p class="panel-sub">Equip up to 2 artifacts for permanent bonuses</p>
+          <div id="artifactsList"></div>
+          <div class="section-label" style="margin-top:16px">⚗️ BASIC CRAFTS</div>
+          <div class="craft-list" id="basicCraftList"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RAID + QUESTS -->
+    <section class="g-panel" id="panelRaid">
+      <div class="raid-layout">
+        <div class="raid-main">
+          <div class="section-label" data-i18n="raidTitle">🌍 GLOBAL RAID</div>
+          <div class="raid-planet-area">
+            <div class="raid-boss" id="raidBoss">🌍</div>
+            <div class="raid-hp-wrap">
+              <div class="raid-hp-bar" id="raidHpBar"><div class="raid-hp-bar-fill" style="width:100%"></div></div>
+              <div class="raid-hp-text" id="raidHpText">—</div>
+            </div>
+          </div>
+          <div class="raid-info" id="raidInfo"><p class="empty-note" style="text-align:center">Loading raid…</p></div>
+          <button class="launch-btn raid-attack-btn" id="raidAttackBtn" style="display:none" data-i18n="attackBoss">⚔️ ATTACK</button>
+          <div class="raid-my-dmg" id="raidMyDmg" style="display:none">My damage: <strong id="raidDmgVal">0</strong></div>
+          <div class="section-label" style="margin-top:16px">🏆 RAID BOARD</div>
+          <div id="raidLeaderboard"><div class="lb-loading">Loading…</div></div>
+        </div>
+        <div class="raid-side">
+          <div class="section-label" data-i18n="dailyQuests">📋 DAILY QUESTS</div>
+          <div id="questsList"></div>
+          <div class="section-label" style="margin-top:16px">☄️ EVENTS LOG</div>
+          <div id="eventsLog"><p class="empty-note">No events yet.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SEASON -->
+    <section class="g-panel" id="panelSeason">
+      <div class="two-col-layout">
+        <div>
+          <div class="section-label" data-i18n="seasonTitle">🎭 WEEKLY SEASON</div>
+          <div class="season-card" id="seasonCard">
+            <div class="season-theme-icon" id="seasonThemeIcon">☀️</div>
+            <div class="season-name" id="seasonName">Loading…</div>
+            <div class="season-ends" id="seasonEnds">—</div>
+            <div class="season-my-pts">My points: <strong id="mySeasonPts">0</strong></div>
+            <div class="season-bonuses" id="seasonBonuses"></div>
+          </div>
+          <div class="section-label" style="margin-top:16px">🏆 SEASON LEADERBOARD</div>
+          <div id="seasonLeaderboard"><div class="lb-loading">Loading…</div></div>
+        </div>
+        <div>
+          <div class="section-label" data-i18n="seasonReward">🎁 SEASON REWARD</div>
+          <div id="seasonRewardCard"></div>
+          <div class="section-label" style="margin-top:16px">🎰 MINI-GAMES</div>
+          <div class="slots-machine-compact">
+            <div class="slots-reels" id="slotsReels">
+              <div class="slot-reel"><div class="reel-inner" id="ri0">🪙</div></div>
+              <div class="slot-reel"><div class="reel-inner" id="ri1">🪙</div></div>
+              <div class="slot-reel"><div class="reel-inner" id="ri2">🪙</div></div>
+            </div>
+            <div class="slots-result" id="slotsResult">Pull the lever!</div>
+            <div class="slots-controls">
+              <div class="bet-row"><button class="bet-btn" id="betDown">−</button><div class="bet-display">BET: <span id="betAmount">50</span>🪙</div><button class="bet-btn" id="betUp">+</button></div>
+              <button class="launch-btn" id="slotsSpinBtn" style="margin:0">🎰 SPIN</button>
+            </div>
+          </div>
+          <div class="section-label" style="margin-top:16px">🚀 METEOR SHOOTER</div>
+          <canvas id="shooterCanvas" width="300" height="200"></canvas>
+          <div class="shooter-controls">
+            <div class="shooter-info">
+              <span>HP: <strong id="shooterHP">3</strong></span>
+              <span>Score: <strong id="shooterScore">0</strong></span>
+              <span>Time: <strong id="shooterTime">—</strong></span>
+            </div>
+            <button class="launch-btn" id="shooterStartBtn" style="margin:0">🚀 PLAY (50🪙)</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CLAN BASE -->
+    <section class="g-panel" id="panelClan">
+      <div class="two-col-layout">
+        <div>
+          <div class="section-label" data-i18n="clanBase">🏰 CLAN BASE</div>
+          <div id="clanBaseSection">
+            <div id="noClanMsg">
+              <p class="panel-sub">Join or create a clan to build your base!</p>
+              <div class="clan-row"><input class="clan-input" type="text" id="clanCreateInput" placeholder="New clan name..." maxlength="20"/><button class="small-btn" id="createClanBtn">Create (500🪙)</button></div>
+              <div class="clan-row"><input class="clan-input" type="text" id="clanJoinInput" placeholder="Clan to join..." maxlength="20"/><button class="small-btn" id="joinClanBtn">Join</button></div>
+            </div>
+            <div id="clanBaseBuildings" style="display:none">
+              <div class="clan-info-bar" id="clanInfoBar"></div>
+              <div class="buildings-list" id="buildingsList"></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="section-label">⚔️ CLAN CHAT &amp; RANKINGS</div>
+          <div id="onlinePlayers" style="margin-bottom:12px"><div class="lb-loading">Loading…</div></div>
+          <button class="small-btn danger" id="leaveClanBtn" style="display:none;margin-bottom:12px">Leave Clan</button>
+          <div class="section-label">🏰 CLAN RANKINGS</div>
+          <div id="clanLeaderboard"><div class="lb-loading">Loading…</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SOCIAL -->
     <section class="g-panel" id="panelSocial">
       <div class="social-layout">
         <div class="social-left">
-          <div class="section-label">💬 GALAXY CHAT</div>
+          <div class="section-label" data-i18n="chat">💬 GALAXY CHAT</div>
           <div class="chat-box" id="chatMessages"><div class="chat-empty">No messages yet…</div></div>
           <div class="chat-input-row">
             <input type="text" id="chatInput" class="chat-input" placeholder="Message the galaxy..." maxlength="80" autocomplete="off"/>
@@ -160,153 +294,129 @@
           </div>
         </div>
         <div class="social-right">
-          <div class="section-label">🧑‍🚀 ONLINE PILOTS</div>
-          <div id="onlinePlayers"><div class="lb-loading">Loading…</div></div>
-
-          <div class="section-label" style="margin-top:20px">⚔️ MY CLAN</div>
-          <div id="clanSection">
-            <div id="clanInClan" style="display:none">
-              <div class="clan-name-display" id="clanNameDisplay">—</div>
-              <button class="small-btn danger" id="leaveClanBtn">Leave Clan</button>
-            </div>
-            <div id="clanNoClan">
-              <div class="clan-row">
-                <input class="clan-input" type="text" id="clanCreateInput" placeholder="New clan name..." maxlength="20"/>
-                <button class="small-btn" id="createClanBtn">Create (500🪙)</button>
-              </div>
-              <div class="clan-row">
-                <input class="clan-input" type="text" id="clanJoinInput" placeholder="Clan to join..." maxlength="20"/>
-                <button class="small-btn" id="joinClanBtn">Join</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="section-label" style="margin-top:20px">🏰 CLAN RANKINGS</div>
-          <div id="clanLeaderboard"><div class="lb-loading">Loading…</div></div>
+          <div class="section-label" data-i18n="onlinePilots">🧑‍🚀 ONLINE PILOTS</div>
+          <div id="onlinePlayersSocial"><div class="lb-loading">Loading…</div></div>
+          <div class="section-label" style="margin-top:16px">🏆 TOP PILOTS</div>
+          <div class="leaderboard" id="leaderboardSocial"><div class="lb-loading">Scanning…</div></div>
         </div>
       </div>
     </section>
 
-    <!-- ⑤ STATS -->
+    <!-- STATS -->
     <section class="g-panel" id="panelStats">
       <div class="two-col-layout">
         <div>
           <div class="section-label">📈 COINS OVER TIME</div>
           <div class="graph-wrap"><canvas id="statsGraph"></canvas></div>
-          <div class="section-label" style="margin-top:20px">📊 DETAILED STATS</div>
+          <div class="section-label" style="margin-top:16px">📊 DETAILED STATS</div>
           <div id="detailedStats"></div>
         </div>
         <div>
           <div class="section-label">🏆 LEADERBOARD</div>
           <div class="leaderboard" id="leaderboardStats"><div class="lb-loading">Scanning…</div></div>
+          <div class="section-label" style="margin-top:16px">🎭 SEASON BOARD</div>
+          <div id="seasonLeaderboardStats"><div class="lb-loading">Loading…</div></div>
         </div>
       </div>
     </section>
 
   </main>
 
-  <!-- MOBILE BOTTOM TABS -->
   <nav class="mobile-tabs">
-    <button class="mtab active" data-panel="panelMine"><span>🪙</span><span class="mtab-lbl">MINE</span></button>
-    <button class="mtab" data-panel="panelShop"><span>🔧</span><span class="mtab-lbl">SHOP</span></button>
-    <button class="mtab" data-panel="panelQuests"><span>📋</span><span class="mtab-lbl">QUESTS</span></button>
-    <button class="mtab notif-tab" data-panel="panelSocial"><span>💬</span><span class="mtab-lbl">SOCIAL</span><span class="notif-dot" id="socialNotifDot" style="display:none"></span></button>
-    <button class="mtab" data-panel="panelStats"><span>📊</span><span class="mtab-lbl">STATS</span></button>
+    <button class="mtab active" data-panel="panelMine">🪙<span class="mtab-lbl" data-i18n="mine">MINE</span></button>
+    <button class="mtab" data-panel="panelShop">🔧<span class="mtab-lbl" data-i18n="shop">SHOP</span></button>
+    <button class="mtab" data-panel="panelTech">🌳<span class="mtab-lbl" data-i18n="tech">TECH</span></button>
+    <button class="mtab" data-panel="panelAlchemy">⚗️<span class="mtab-lbl">CRAFT</span></button>
+    <button class="mtab" data-panel="panelRaid">🌍<span class="mtab-lbl" data-i18n="raid">RAID</span><span class="notif-dot" id="raidNotifDot" style="display:none"></span></button>
+    <button class="mtab" data-panel="panelSeason">🎭<span class="mtab-lbl" data-i18n="season">SEASON</span></button>
+    <button class="mtab" data-panel="panelClan">🏰<span class="mtab-lbl">CLAN</span></button>
+    <button class="mtab notif-tab" data-panel="panelSocial">💬<span class="mtab-lbl" data-i18n="social">SOCIAL</span><span class="notif-dot" id="socialNotifDot" style="display:none"></span></button>
+    <button class="mtab" data-panel="panelStats">📊<span class="mtab-lbl" data-i18n="stats">STATS</span></button>
   </nav>
-
-</div><!-- /game-wrap -->
-
-<!-- ══ MODALS ══ -->
-
-<!-- Skin selector -->
-<div class="modal-overlay hidden" id="skinModal">
-  <div class="modal-card">
-    <button class="modal-close" id="skinClose">✕</button>
-    <h2 class="modal-title-sm">🎨 COIN SKINS</h2>
-    <p class="modal-sub">Unlock new looks for your coin</p>
-    <div class="skins-grid" id="skinsGrid"></div>
-  </div>
 </div>
 
-<!-- Prestige confirm -->
+<!-- MODALS -->
+<div class="modal-overlay hidden" id="skinModal">
+  <div class="modal-card"><button class="modal-close" id="skinClose">✕</button><h2 class="modal-title-sm">🎨 COIN SKINS</h2><div class="skins-grid" id="skinsGrid"></div></div>
+</div>
 <div class="modal-overlay hidden" id="prestigeModal">
   <div class="modal-card">
     <button class="modal-close" id="prestigeClose">✕</button>
     <div style="font-size:52px;margin-bottom:12px">♻️</div>
-    <h2 class="modal-title-sm">PRESTIGE RESET</h2>
-    <p class="modal-sub">Coins and upgrades reset.<br/>You gain a permanent multiplier bonus.</p>
+    <h2 class="modal-title-sm" data-i18n="prestigeReset">PRESTIGE RESET</h2>
+    <p class="modal-sub" data-i18n="prestigeDesc"></p>
     <div class="prestige-info-box">
-      <div>Current level: <strong id="curPrestigeLvl">0</strong></div>
-      <div>New multiplier: <strong id="newPrestigeMult" style="color:var(--gold)">×1.5</strong></div>
+      <div><span data-i18n="curLevel">Current level</span>: <strong id="curPrestigeLvl">0</strong></div>
+      <div><span data-i18n="newMult">New multiplier</span>: <strong id="newPrestigeMult" style="color:var(--gold)">×1.5</strong></div>
     </div>
-    <button class="launch-btn" id="confirmPrestigeBtn" style="margin-top:20px">♻️ CONFIRM PRESTIGE</button>
+    <button class="launch-btn" id="confirmPrestigeBtn" data-i18n="confirmPrestige" style="margin-top:20px">♻️ CONFIRM</button>
   </div>
 </div>
-
-<!-- Duel challenge -->
 <div class="modal-overlay hidden" id="duelModal">
   <div class="modal-card">
     <div style="font-size:52px;margin-bottom:12px">🥊</div>
     <h2 class="modal-title-sm">DUEL CHALLENGE!</h2>
-    <p class="modal-sub"><strong id="duelChallenger">Player</strong> challenges you to a 30-second click battle!</p>
-    <p class="modal-sub" style="color:var(--gold);margin-top:6px">Winner gets <strong id="duelPrize">500</strong> 🪙</p>
-    <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;justify-content:center">
+    <p class="modal-sub"><strong id="duelChallenger">Player</strong> challenges you!</p>
+    <p style="color:var(--gold);font-family:var(--font-d);font-size:11px;margin-top:6px">Winner: <strong id="duelPrize">500</strong> 🪙</p>
+    <div style="display:flex;gap:12px;margin-top:20px;justify-content:center">
       <button class="launch-btn green-btn" id="acceptDuelBtn">⚔️ ACCEPT</button>
       <button class="launch-btn red-btn" id="declineDuelBtn">✕ DECLINE</button>
     </div>
   </div>
 </div>
-
-<!-- Duel active -->
 <div class="modal-overlay hidden" id="duelActiveModal">
   <div class="modal-card">
-    <h2 class="modal-title-sm" style="color:var(--gold)">⚔️ DUEL IN PROGRESS</h2>
+    <h2 class="modal-title-sm" style="color:var(--gold)">⚔️ DUEL!</h2>
     <div class="duel-countdown" id="duelCountdown">30</div>
     <div class="duel-scores">
-      <div class="duel-score-side">
-        <div class="duel-score-name" id="duelMyName">You</div>
-        <div class="duel-score-val" id="duelMyScore">0</div>
-      </div>
+      <div class="duel-score-side"><div class="duel-score-name" id="duelMyName">You</div><div class="duel-score-val" id="duelMyScore">0</div></div>
       <div class="duel-vs">VS</div>
-      <div class="duel-score-side">
-        <div class="duel-score-name" id="duelOppName">Opp</div>
-        <div class="duel-score-val" id="duelOppScore">0</div>
-      </div>
+      <div class="duel-score-side"><div class="duel-score-name" id="duelOppName">Opp</div><div class="duel-score-val" id="duelOppScore">0</div></div>
     </div>
-    <p class="modal-sub">Tap as fast as you can!</p>
     <button class="duel-coin-btn" id="duelCoinBtn">🪙</button>
   </div>
 </div>
-
-<!-- Gift -->
 <div class="modal-overlay hidden" id="giftModal">
   <div class="modal-card">
     <button class="modal-close" id="giftClose">✕</button>
     <div style="font-size:52px;margin-bottom:12px">🎁</div>
     <h2 class="modal-title-sm">SEND GIFT</h2>
     <p class="modal-sub">To: <strong id="giftTarget">Player</strong></p>
-    <div class="input-wrap" style="margin-top:16px">
-      <input type="number" id="giftAmount" placeholder="Amount of coins..." min="10"/>
+    <div class="input-wrap" style="margin-top:16px"><input type="number" id="giftAmount" placeholder="Amount..." min="10"/></div>
+    <p class="modal-sub" id="giftBalance" style="color:var(--gold)"></p>
+    <button class="launch-btn" id="confirmGiftBtn" style="margin-top:12px">🎁 SEND</button>
+  </div>
+</div>
+<div class="modal-overlay hidden" id="raidRewardModal">
+  <div class="modal-card">
+    <div style="font-size:52px;margin-bottom:12px">🎉</div>
+    <h2 class="modal-title-sm" style="color:var(--gold)" data-i18n="raidComplete">RAID COMPLETE!</h2>
+    <div class="offline-info-box">
+      <div class="offline-row"><span data-i18n="raidShare">Your share</span><strong id="raidRewardCoins" style="color:var(--gold)">—</strong></div>
+      <div class="offline-row"><span>Resources</span><strong id="raidRewardRes" style="color:var(--cyan)">—</strong></div>
     </div>
-    <p class="modal-sub" id="giftBalance" style="margin-top:6px;color:var(--gold)"></p>
-    <button class="launch-btn" id="confirmGiftBtn" style="margin-top:12px">🎁 SEND GIFT</button>
+    <button class="launch-btn" id="claimRaidBtn" style="margin-top:20px">✨ COLLECT!</button>
+  </div>
+</div>
+<div class="modal-overlay hidden" id="loreModal">
+  <div class="modal-card">
+    <button class="modal-close" id="loreClose">✕</button>
+    <div class="lore-chapter-icon" id="loreIcon">📖</div>
+    <h2 class="modal-title-sm" id="loreTitle">Chapter</h2>
+    <p class="modal-sub lore-text" id="loreText">—</p>
   </div>
 </div>
 
-<!-- Achievement popup -->
 <div class="ach-popup" id="achPopup" style="display:none">
   <div class="ach-pop-icon" id="achPopIcon">🏅</div>
-  <div>
-    <div class="ach-pop-title">ACHIEVEMENT UNLOCKED</div>
-    <div class="ach-pop-name" id="achPopName">—</div>
-  </div>
+  <div><div class="ach-pop-title" data-i18n="achievUnlocked">ACHIEVEMENT UNLOCKED</div><div class="ach-pop-name" id="achPopName">—</div></div>
 </div>
-
 <div class="toast" id="toast"></div>
 
-<!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="i18n.js"></script>
 <script src="firebase.js"></script>
 <script src="script.js"></script>
 </body>
