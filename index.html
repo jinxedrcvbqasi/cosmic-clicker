@@ -70,7 +70,7 @@
     <div class="h-right">
       <div class="season-indicator" id="seasonIndicator" title="Current Season">☀️</div>
       <button class="icon-btn" id="soundToggle">🔊</button>
-      <button class="icon-btn" id="notifBtn">🔔</button>
+      <button class="icon-btn notif-btn-wrap" id="notifBtn">🔔<span class="notif-badge" id="notifBadge" style="display:none">0</span></button>
       <button class="icon-btn" id="langToggle">EN</button>
       <div class="pilot-tag">
         <span>👨‍🚀</span><span id="headerUsername">Pilot</span>
@@ -412,6 +412,24 @@
   <div><div class="ach-pop-title" data-i18n="achievUnlocked">ACHIEVEMENT UNLOCKED</div><div class="ach-pop-name" id="achPopName">—</div></div>
 </div>
 <div class="toast" id="toast"></div>
+
+<!-- NOTIFICATION PANEL -->
+<div class="notif-panel-overlay" id="notifOverlay"></div>
+<div class="notif-panel" id="notifPanel">
+  <div class="notif-panel-header">
+    <span>🔔 NOTIFICATIONS</span>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="notif-clear-btn" id="notifClearBtn">Clear all</button>
+      <button class="modal-close" id="notifPanelClose">✕</button>
+    </div>
+  </div>
+  <div class="notif-list" id="notifList">
+    <div class="notif-empty">No notifications yet</div>
+  </div>
+  <div class="notif-push-row">
+    <button class="small-btn" id="enablePushBtn">📲 Enable push alerts</button>
+  </div>
+</div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>

@@ -292,6 +292,137 @@ function effectiveCPS(){
 }
 
 /* ══════════════════════════════════════
+   NOTIFICATION CENTER
+══════════════════════════════════════ */
+const _notifQueue=[];
+let _notifPanelOpen=false,_notifUnread=0;
+
+function addGameNotif(icon,title,body){
+  _notifQueue.unshift({icon,title,body,time:Date.now()});
+  if(_notifQueue.length>30)_notifQueue.pop();
+  _notifUnread++;
+  _updateNotifBadge();
+  if(Notification.permission==='granted')fbLocalNotif(`${icon} ${title}`,body);
+  if(_notifPanelOpen)_renderNotifList();
+}
+function _updateNotifBadge(){
+  const b=$('notifBadge');if(!b)return;
+  if(_notifUnread>0){b.textContent=_notifUnread>9?'9+':_notifUnread;b.style.display='flex';}
+  else b.style.display='none';
+}
+function _timeAgo(ts){const d=Date.now()-ts;if(d<60000)return'just now';if(d<3600000)return Math.floor(d/60000)+'m ago';return Math.floor(d/3600000)+'h ago';}
+function _renderNotifList(){
+  const el=$('notifList');if(!el)return;
+  if(!_notifQueue.length){el.innerHTML='<div class="notif-empty">No notifications yet</div>';return;}
+  el.innerHTML=_notifQueue.map(n=>`<div class="notif-item"><span class="notif-item-icon">${n.icon}</span><div class="notif-item-body"><div class="notif-item-title">${escHTML(n.title)}</div><div class="notif-item-desc">${escHTML(n.body)}</div><div class="notif-item-time">${_timeAgo(n.time)}</div></div></div>`).join('');
+}
+function _openNotifPanel(){
+  _notifPanelOpen=true;_notifUnread=0;_updateNotifBadge();_renderNotifList();
+  $('notifPanel').classList.add('open');$('notifOverlay').classList.add('open');
+}
+function _closeNotifPanel(){
+  _notifPanelOpen=false;
+  $('notifPanel').classList.remove('open');$('notifOverlay').classList.remove('open');
+}
+
+/* ══════════════════════════════════════
+   BOT SYSTEM v5
+══════════════════════════════════════ */
+const BOTS=[
+  {id:'bot_nova7',  name:'Nova_Seven',  coins:3200000},
+  {id:'bot_zara',   name:'Zara_Prime',  coins:1700000},
+  {id:'bot_kira',   name:'KiraX',       coins:920000},
+  {id:'bot_void',   name:'VoidPilot',   coins:450000},
+  {id:'bot_astro',  name:'AstroMike33', coins:195000},
+  {id:'bot_plasma', name:'PlasmaByte',  coins:88000},
+  {id:'bot_echo',   name:'EchoStrike',  coins:34000},
+  {id:'bot_luna',   name:'LunaHawk',    coins:12500},
+];
+const BOT_MSGS=[
+  'just hit 1M coins! 🎉','anyone doing the raid?','prestige #3 done ♻️',
+  'this game is so addictive lol','double day strategy = auto miners',
+  'anyone in a clan yet?','just unlocked Singularity planet 🌀',
+  'my cps is crazy rn 🚀','grind never stops bro',
+  'artifacts are overpowered (in a good way)','jackpot in slots!! 🎰',
+  'meteor shower totally worth it','dark core planet pays off',
+  'void crystals are RARE...','crafted phoenix core finally!',
+  'season grinding hard 🎭','click frenzy + prestige = insane',
+  'the tech tree goes deep wow','raid boss almost dead! attack!',
+  'who else top 10? 👀','just sent a gift 🎁','star forge upgrade = must buy',
+  'nebula station is cracked','new season starts soon right?',
+  'daily quests done, easy coins','void fist upgrade hits different',
+];
+
+let _isBotMaintainer=false,_botChatTimer=null;
+
+async function initBotSystem(){
+  if(!firebaseReady||!state.uid)return;
+  try{
+    const lockRef=db.ref('bots/lock');
+    const snap=await lockRef.once('value');
+    const lock=snap.val(),now=Date.now();
+    if(!lock||(now-(lock.at||0))>90000){
+      await lockRef.set({uid:state.uid,at:now});
+      lockRef.onDisconnect().remove();
+      _isBotMaintainer=true;
+      _startBotMaintainer();
+      console.log('🤖 Bot maintainer acquired');
+    }
+  }catch(e){}
+  // Try to re-acquire every 80s in case maintainer disconnected
+  setTimeout(initBotSystem,80000);
+}
+
+function _startBotMaintainer(){
+  if(!_isBotMaintainer)return;
+  _spawnBotPresence();
+  _spawnBotPlayers();
+  _scheduleBotChat();
+  // Heartbeat: refresh lock every 60s
+  setInterval(()=>{if(_isBotMaintainer&&db)db.ref('bots/lock').update({at:Date.now()}).catch(()=>{});},60000);
+}
+
+function _spawnBotPresence(){
+  if(!firebaseReady)return;
+  BOTS.forEach(bot=>{
+    const ref=db.ref(`presence/${bot.id}`);
+    ref.set({name:bot.name,uid:bot.id,isBot:true,joinedAt:firebase.database.ServerValue.TIMESTAMP}).catch(()=>{});
+    ref.onDisconnect().remove();
+  });
+}
+
+function _spawnBotPlayers(){
+  if(!firebaseReady)return;
+  BOTS.forEach(bot=>{
+    db.ref(`players/${bot.id}`).once('value').then(snap=>{
+      const ex=snap.val();
+      if(!ex||ex.isBot){
+        db.ref(`players/${bot.id}`).set({
+          name:bot.name,displayName:bot.name,
+          coins:Math.floor(bot.coins*0.15),totalCoins:bot.coins,
+          coinsPerClick:Math.max(1,Math.floor(bot.coins/2000)),
+          coinsPerSecond:Math.max(0,Math.floor(bot.coins/800)),
+          prestigeLevel:Math.max(0,Math.floor(Math.log10(Math.max(1,bot.coins/5000)))),
+          isBot:true,lastSeen:firebase.database.ServerValue.TIMESTAMP,
+        }).catch(()=>{});
+      }
+    }).catch(()=>{});
+  });
+}
+
+function _scheduleBotChat(){
+  if(!_isBotMaintainer)return;
+  const delay=(25+Math.random()*65)*1000;
+  _botChatTimer=setTimeout(()=>{
+    if(!_isBotMaintainer)return;
+    const bot=BOTS[Math.floor(Math.random()*BOTS.length)];
+    const msg=BOT_MSGS[Math.floor(Math.random()*BOT_MSGS.length)];
+    fbSendChat(bot.name,msg,bot.id);
+    _scheduleBotChat();
+  },delay);
+}
+
+/* ══════════════════════════════════════
    SOUND
 ══════════════════════════════════════ */
 let audioCtx=null;
@@ -694,7 +825,7 @@ function showNPCOffer(offerType){
   $('npcAvatar').textContent=offer.npc;
   $('npcDesc').textContent=offer.desc;$('npcDealBox').textContent=offer.deal;
   npcTimeLeft=60;$('npcTimer').textContent=`Offer expires in ${npcTimeLeft}s`;
-  $('npcModal').classList.remove('hidden');SFX.event();
+  $('npcModal').classList.remove('hidden');SFX.event();addGameNotif(offer.npc,'Space Trader appeared!',offer.deal);
   clearInterval(npcTimer);
   npcTimer=setInterval(()=>{npcTimeLeft--;$('npcTimer').textContent=`Offer expires in ${npcTimeLeft}s`;if(npcTimeLeft<=0){clearInterval(npcTimer);$('npcModal').classList.add('hidden');npcOfferData=null;}},1000);
 }
@@ -811,7 +942,7 @@ function renderQuests(){
     const pct=Math.min(100,(q.progress/q.target)*100),done=q.progress>=q.target;
     return`<div class="quest-card${done?' completed':''}"><div class="quest-header"><span class="quest-name">${q.icon} ${q.name}</span><span class="quest-reward">+${fmt(q.reward)}🪙</span></div><div class="quest-progress-bar"><div class="quest-progress-fill" style="width:${pct}%"></div></div><div class="quest-footer"><span class="quest-count">${fmt(q.progress)}/${fmt(q.target)}</span>${done&&!q.claimed?`<button class="quest-claim-btn" data-qi="${i}">${t('claim')}</button>`:q.claimed?`<span class="quest-claimed">${t('claimed')}</span>`:''}</div></div>`;
   }).join('');
-  el.querySelectorAll('.quest-claim-btn').forEach(btn=>btn.addEventListener('click',()=>{const q=state.dailyQuests.quests[+btn.dataset.qi];if(!q||q.claimed||q.progress<q.target)return;q.claimed=true;state.coins+=q.reward;state.totalCoins+=q.reward;addSeasonPts(25);renderQuests();updateHUD();SFX.ach();showToast(`🎉 Quest! +${fmt(q.reward)}`);scheduleSave();}));
+  el.querySelectorAll('.quest-claim-btn').forEach(btn=>btn.addEventListener('click',()=>{const q=state.dailyQuests.quests[+btn.dataset.qi];if(!q||q.claimed||q.progress<q.target)return;q.claimed=true;state.coins+=q.reward;state.totalCoins+=q.reward;addSeasonPts(25);renderQuests();updateHUD();SFX.ach();showToast(`🎉 Quest! +${fmt(q.reward)}`);addGameNotif('📋','Quest Complete!',`${q.name} — +${fmt(q.reward)} coins`);scheduleSave();}));
 }
 
 /* ══════════════════════════════════════
@@ -825,7 +956,7 @@ function triggerEvent(ev){
   const msg=ev.apply(state);
   eventActive=true;$('eventIcon').textContent=ev.icon;$('eventText').textContent=ev.name+' '+msg;
   $('eventBanner').style.display='flex';SFX.event();showToast(`${ev.icon} ${ev.name} — ${msg}`);
-  addEventLog(ev.icon,ev.name,msg);addSeasonPts(10);
+  addEventLog(ev.icon,ev.name,msg);addSeasonPts(10);addGameNotif(ev.icon,ev.name,msg);
   const season=getSeasonBonus(),tech=getTechBonus(),clan=getClanBonus();
   const dropChance=1+tech.resources+(clan.resources||0)+((season.resources||1)-1);
   if(ev.resource&&Math.random()<0.7*dropChance){state.resources[ev.resource]=(state.resources[ev.resource]||0)+1;showToast(`+1 ${RESOURCES.find(r=>r.id===ev.resource)?.emoji} resource!`);renderCraft();}
@@ -880,6 +1011,7 @@ function showRaidReward(myDmg,totalHp){
     else state.resources['stardust']=(state.resources['stardust']||0)+1;
     fbMarkRaidClaimed(state.uid);addSeasonPts(50);
     $('raidRewardModal').classList.add('hidden');updateHUD();renderCraft();SFX.jackpot();showToast('🎉 Raid reward!');
+    addGameNotif('🌍','Raid Complete!',`You earned +${fmt(coins)} coins from the raid`);
     state.achievements['raid1']=true;checkAchievements();scheduleSave();
   };
 }
@@ -1014,7 +1146,10 @@ function renderOnlinePlayers(list,elId='onlinePlayersSocial'){
   const el=$(elId);if(!el)return;
   const others=list.filter(p=>p.key!==state.uid);
   if(!others.length){el.innerHTML='<div class="lb-loading">No other pilots online</div>';return;}
-  el.innerHTML=others.map(p=>`<div class="pilot-row"><span class="pilot-row-name">👨‍🚀 ${escHTML(p.name)}</span><div class="pilot-row-btns"><button class="pilot-action-btn duel" data-key="${escHTML(p.key)}" data-name="${escHTML(p.name)}">⚔️</button><button class="pilot-action-btn" data-gk="${escHTML(p.key)}" data-gn="${escHTML(p.name)}">🎁</button></div></div>`).join('');
+  el.innerHTML=others.map(p=>{
+    if(p.isBot)return`<div class="pilot-row"><span class="pilot-row-name">🤖 ${escHTML(p.name)}</span><span class="bot-tag">BOT</span></div>`;
+    return`<div class="pilot-row"><span class="pilot-row-name">👨‍🚀 ${escHTML(p.name)}</span><div class="pilot-row-btns"><button class="pilot-action-btn duel" data-key="${escHTML(p.key)}" data-name="${escHTML(p.name)}">⚔️</button><button class="pilot-action-btn" data-gk="${escHTML(p.key)}" data-gn="${escHTML(p.name)}">🎁</button></div></div>`;
+  }).join('');
   el.querySelectorAll('.pilot-action-btn.duel').forEach(b=>b.addEventListener('click',()=>startDuel(b.dataset.key,b.dataset.name)));
   el.querySelectorAll('[data-gk]').forEach(b=>b.addEventListener('click',()=>openGiftModal(b.dataset.gk,b.dataset.gn)));
 }
@@ -1052,8 +1187,8 @@ $('giftClose').addEventListener('click',()=>$('giftModal').classList.add('hidden
 $('confirmGiftBtn').addEventListener('click',async()=>{const amt=parseInt($('giftAmount').value);if(!amt||amt<10){showToast('Min 10 coins');return;}if(amt>state.coins){showToast(t('notEnoughCoins'));return;}state.coins-=amt;updateHUD();const ok=await fbSendGift(state.username,giftTargetUID,amt);$('giftModal').classList.add('hidden');if(ok){state.achievements['sent_gift']=true;SFX.gift();showToast(`🎁 Sent ${fmt(amt)} coins!`);checkAchievements();scheduleSave();}else{state.coins+=amt;updateHUD();showToast('Failed to send gift');}});
 function handleNotification(data){
   if(!data)return;
-  if(data.type==='gift'){state.coins+=data.amount||0;state.totalCoins+=data.amount||0;updateHUD();SFX.gift();showToast(`🎁 ${data.from} sent ${fmt(data.amount)} coins!`);scheduleSave();}
-  if(data.type==='duel'){activeDuelKey=data.duelKey;$('duelChallenger').textContent=data.from;$('duelPrize').textContent=fmt(data.prize||500);$('duelModal').classList.remove('hidden');SFX.event();fbListenDuel(data.duelKey,handleDuelUpdate);}
+  if(data.type==='gift'){state.coins+=data.amount||0;state.totalCoins+=data.amount||0;updateHUD();SFX.gift();showToast(`🎁 ${data.from} sent ${fmt(data.amount)} coins!`);addGameNotif('🎁','Gift received!',`${data.from} sent you ${fmt(data.amount)} coins`);scheduleSave();}
+  if(data.type==='duel'){activeDuelKey=data.duelKey;$('duelChallenger').textContent=data.from;$('duelPrize').textContent=fmt(data.prize||500);$('duelModal').classList.remove('hidden');SFX.event();fbListenDuel(data.duelKey,handleDuelUpdate);addGameNotif('⚔️','Duel challenge!',`${data.from} challenges you for ${fmt(data.prize||500)} coins`);}
 }
 
 /* ══════════════════════════════════════
@@ -1101,7 +1236,11 @@ function initTabs(){document.querySelectorAll('.mtab').forEach(tab=>tab.addEvent
 ══════════════════════════════════════ */
 $('soundToggle').addEventListener('click',()=>{state.soundEnabled=!state.soundEnabled;$('soundToggle').textContent=state.soundEnabled?'🔊':'🔇';$('soundToggle').classList.toggle('active',!state.soundEnabled);});
 $('langToggle').addEventListener('click',()=>{const next=currentLang==='en'?'ru':'en';setLang(next);$('langToggle').textContent=next.toUpperCase();});
-$('notifBtn').addEventListener('click',async()=>{const ok=await fbRequestPush();if(ok){showToast('🔔 Notifications enabled!');$('notifBtn').classList.add('active');}else showToast('Notifications not allowed');});
+$('notifBtn').addEventListener('click',()=>{if(_notifPanelOpen)_closeNotifPanel();else _openNotifPanel();});
+$('notifOverlay').addEventListener('click',_closeNotifPanel);
+$('notifPanelClose').addEventListener('click',_closeNotifPanel);
+$('notifClearBtn').addEventListener('click',()=>{_notifQueue.length=0;_notifUnread=0;_updateNotifBadge();_renderNotifList();});
+$('enablePushBtn').addEventListener('click',async()=>{const ok=await fbRequestPush();if(ok){showToast('🔔 Push enabled!');$('enablePushBtn').textContent='✅ Push enabled';$('enablePushBtn').disabled=true;}else showToast('Push notifications not allowed');});
 
 /* ══════════════════════════════════════
    SAVE
@@ -1189,7 +1328,7 @@ async function startGame(uid, username){
     const m=['🥇','🥈','🥉'];el.innerHTML=clans.map((c,i)=>`<div class="lb-row${c.name===state.clanId?' me':''}"><div class="lb-rank${i<3?' r'+(i+1):''}">${m[i]||i+1}</div><div class="lb-name">⚔️${escHTML(c.name)}</div><div class="lb-score">${fmt(c.total)}</div></div>`).join('');
   });
   fbPruneChat();fbListenNPCOffer(offer=>showNPCOffer(offer.type));
-  fbListenBroadcast(msg=>{$('broadcastStrip').style.display='flex';$('broadcastMsg').textContent=msg;setTimeout(()=>$('broadcastStrip').style.display='none',10000);});
+  fbListenBroadcast(msg=>{$('broadcastStrip').style.display='flex';$('broadcastMsg').textContent=msg;addGameNotif('📢','Announcement',msg);setTimeout(()=>$('broadcastStrip').style.display='none',10000);});
   fbListenGlobalEvent(ev=>{const eventDef=EVENTS.find(e=>e.id===ev.type);if(eventDef)triggerEvent(eventDef);});
   fbGetCurrentSeason(seasonData=>renderSeason(seasonData));
   if(state.clanId)loadClanData();
@@ -1200,6 +1339,7 @@ async function startGame(uid, username){
   requestAnimationFrame(tickParticles);
   setTimeout(triggerEvent,(2+Math.random()*4)*60000);
   scheduleNPC();
+  setTimeout(initBotSystem,3000); // init bots after 3s delay
 }
 
 /* ══════════════════════════════════════

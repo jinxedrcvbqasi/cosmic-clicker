@@ -110,7 +110,7 @@ function fbOnOnlineCount(cb) {
 function fbOnOnlinePlayers(cb) {
   if(!firebaseReady) { cb([]); return; }
   db.ref('presence').on('value', snap => {
-    const l = []; snap.forEach(c => { const d = c.val(); if(d?.name) l.push({ key: c.key, name: d.name }); });
+    const l = []; snap.forEach(c => { const d = c.val(); if(d?.name) l.push({ key: c.key, name: d.name, isBot: !!d.isBot }); });
     cb(l);
   }, () => cb([]));
 }
