@@ -63,21 +63,26 @@
 <!-- GAME WRAPPER -->
 <div class="game-wrap" id="gameWrap" style="display:none">
   <header class="g-header">
-    <div class="h-brand">⭐ COSMIC</div>
+    <div class="h-brand">⭐ <span class="h-brand-text">COSMIC</span></div>
     <div class="h-center">
       <div class="online-badge"><span class="pulse-dot"></span><span id="onlineCount">0</span>&nbsp;<span data-i18n="online">online</span></div>
     </div>
     <div class="h-right">
-      <div class="season-indicator" id="seasonIndicator" title="Current Season">☀️</div>
-      <button class="icon-btn" id="soundToggle">🔊</button>
       <button class="icon-btn notif-btn-wrap" id="notifBtn">🔔<span class="notif-badge" id="notifBadge" style="display:none">0</span></button>
-      <button class="icon-btn" id="langToggle">EN</button>
+      <button class="icon-btn h-settings-btn" id="settingsBtn">⚙️</button>
       <div class="pilot-tag">
-        <span>👨‍🚀</span><span id="headerUsername">Pilot</span>
+        <span class="season-indicator" id="seasonIndicator">☀️</span>
+        <span id="headerUsername">Pilot</span>
         <span class="prestige-badge" id="prestigeBadge" style="display:none">✦<span id="prestigeLevel">0</span></span>
       </div>
     </div>
   </header>
+  <!-- Settings dropdown -->
+  <div class="settings-dropdown" id="settingsDropdown" style="display:none">
+    <button class="icon-btn" id="soundToggle">🔊</button>
+    <button class="icon-btn" id="langToggle">EN</button>
+    <button class="icon-btn" id="enablePushBtn">📲</button>
+  </div>
 
   <div class="event-banner" id="eventBanner" style="display:none">
     <span id="eventIcon">☄️</span><span id="eventText">Event!</span>
@@ -127,6 +132,11 @@
           </div>
           <div id="prestigeWrap" style="display:none">
             <button class="prestige-btn" id="prestigeBtn">♻️ <span data-i18n="prestige">PRESTIGE</span> — ×<span id="prestigeMultShow">1.5</span></button>
+          </div>
+          <!-- QUICK BUY - fills empty space on mobile -->
+          <div class="quick-buy-section show-mobile" id="quickBuySection">
+            <div class="quick-buy-label">⚡ QUICK BUY</div>
+            <div class="quick-buy-grid" id="quickBuyGrid"></div>
           </div>
           <div id="floatPortal"></div>
         </div>
@@ -425,9 +435,6 @@
   </div>
   <div class="notif-list" id="notifList">
     <div class="notif-empty">No notifications yet</div>
-  </div>
-  <div class="notif-push-row">
-    <button class="small-btn" id="enablePushBtn">📲 Enable push alerts</button>
   </div>
 </div>
 

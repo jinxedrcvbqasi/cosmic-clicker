@@ -300,8 +300,7 @@ let _notifPanelOpen=false,_notifUnread=0;
 function addGameNotif(icon,title,body){
   _notifQueue.unshift({icon,title,body,time:Date.now()});
   if(_notifQueue.length>30)_notifQueue.pop();
-  _notifUnread++;
-  _updateNotifBadge();
+  _notifUnread++;_updateNotifBadge();
   if(Notification.permission==='granted')fbLocalNotif(`${icon} ${title}`,body);
   if(_notifPanelOpen)_renderNotifList();
 }
@@ -326,7 +325,9 @@ function _closeNotifPanel(){
 }
 
 /* ══════════════════════════════════════
-   BOT SYSTEM v5
+   BOT SYSTEM v6 — LOCAL AUGMENTATION
+   Bots show in UI locally (no Firebase lock needed).
+   Only bot CHAT goes to Firebase, throttled.
 ══════════════════════════════════════ */
 const BOTS=[
   {id:'bot_nova7',  name:'Nova_Seven',  coins:3200000},
@@ -340,86 +341,67 @@ const BOTS=[
 ];
 const BOT_MSGS=[
   'just hit 1M coins! 🎉','anyone doing the raid?','prestige #3 done ♻️',
-  'this game is so addictive lol','double day strategy = auto miners',
+  'this game is so addictive lol','double day strat = auto miners',
   'anyone in a clan yet?','just unlocked Singularity planet 🌀',
-  'my cps is crazy rn 🚀','grind never stops bro',
-  'artifacts are overpowered (in a good way)','jackpot in slots!! 🎰',
-  'meteor shower totally worth it','dark core planet pays off',
+  'my cps is wild rn 🚀','grind never stops bro',
+  'artifacts are op (in a good way)','jackpot in slots!! 🎰',
+  'meteor shower was totally worth it','dark core planet pays off',
   'void crystals are RARE...','crafted phoenix core finally!',
   'season grinding hard 🎭','click frenzy + prestige = insane',
-  'the tech tree goes deep wow','raid boss almost dead! attack!',
-  'who else top 10? 👀','just sent a gift 🎁','star forge upgrade = must buy',
-  'nebula station is cracked','new season starts soon right?',
-  'daily quests done, easy coins','void fist upgrade hits different',
+  'the tech tree goes DEEP','raid boss almost dead! attack!',
+  'who else top 10? 👀','just sent a gift lol 🎁',
+  'star forge upgrade = must buy','nebula station is cracked',
+  'new season starts soon right?','daily quests done — easy coins',
 ];
 
-let _isBotMaintainer=false,_botChatTimer=null;
-
-async function initBotSystem(){
-  if(!firebaseReady||!state.uid)return;
-  try{
-    const lockRef=db.ref('bots/lock');
-    const snap=await lockRef.once('value');
-    const lock=snap.val(),now=Date.now();
-    if(!lock||(now-(lock.at||0))>90000){
-      await lockRef.set({uid:state.uid,at:now});
-      lockRef.onDisconnect().remove();
-      _isBotMaintainer=true;
-      _startBotMaintainer();
-      console.log('🤖 Bot maintainer acquired');
-    }
-  }catch(e){}
-  // Try to re-acquire every 80s in case maintainer disconnected
-  setTimeout(initBotSystem,80000);
+// Returns bots "online" at this moment — stable per 15min window
+function _getActiveBots(){
+  const slot=Math.floor(Date.now()/900000); // changes every 15min
+  const count=3+(slot%4); // 3–6 bots
+  return BOTS.slice(0,Math.min(count,BOTS.length));
 }
-
-function _startBotMaintainer(){
-  if(!_isBotMaintainer)return;
-  _spawnBotPresence();
-  _spawnBotPlayers();
-  _scheduleBotChat();
-  // Heartbeat: refresh lock every 60s
-  setInterval(()=>{if(_isBotMaintainer&&db)db.ref('bots/lock').update({at:Date.now()}).catch(()=>{});},60000);
+function _getBotOnlineList(){
+  return _getActiveBots().map(b=>({key:b.id,name:b.name,isBot:true}));
 }
-
-function _spawnBotPresence(){
+function _buildAugmentedLeaderboard(real){
+  const botEntries=BOTS.map(b=>({name:b.name,totalCoins:b.coins,isBot:true}));
+  const merged=[...real];
+  botEntries.forEach(b=>{if(!merged.find(e=>e.name===b.name))merged.push(b);});
+  return merged.sort((a,b)=>b.totalCoins-a.totalCoins).slice(0,10);
+}
+function _attemptBotChat(){
   if(!firebaseReady)return;
-  BOTS.forEach(bot=>{
-    const ref=db.ref(`presence/${bot.id}`);
-    ref.set({name:bot.name,uid:bot.id,isBot:true,joinedAt:firebase.database.ServerValue.TIMESTAMP}).catch(()=>{});
-    ref.onDisconnect().remove();
-  });
-}
-
-function _spawnBotPlayers(){
-  if(!firebaseReady)return;
-  BOTS.forEach(bot=>{
-    db.ref(`players/${bot.id}`).once('value').then(snap=>{
-      const ex=snap.val();
-      if(!ex||ex.isBot){
-        db.ref(`players/${bot.id}`).set({
-          name:bot.name,displayName:bot.name,
-          coins:Math.floor(bot.coins*0.15),totalCoins:bot.coins,
-          coinsPerClick:Math.max(1,Math.floor(bot.coins/2000)),
-          coinsPerSecond:Math.max(0,Math.floor(bot.coins/800)),
-          prestigeLevel:Math.max(0,Math.floor(Math.log10(Math.max(1,bot.coins/5000)))),
-          isBot:true,lastSeen:firebase.database.ServerValue.TIMESTAMP,
-        }).catch(()=>{});
-      }
-    }).catch(()=>{});
-  });
-}
-
-function _scheduleBotChat(){
-  if(!_isBotMaintainer)return;
-  const delay=(25+Math.random()*65)*1000;
-  _botChatTimer=setTimeout(()=>{
-    if(!_isBotMaintainer)return;
+  db.ref('bots/lastChat').transaction(last=>{
+    const now=Date.now();
+    if(last&&(now-last)<50000)return; // abort — too recent
+    return now;
+  }).then(res=>{
+    if(!res.committed)return;
     const bot=BOTS[Math.floor(Math.random()*BOTS.length)];
     const msg=BOT_MSGS[Math.floor(Math.random()*BOT_MSGS.length)];
     fbSendChat(bot.name,msg,bot.id);
-    _scheduleBotChat();
-  },delay);
+  }).catch(()=>{});
+}
+function initBotSystem(){
+  // First chat after random 15-40s
+  setTimeout(_attemptBotChat,(15+Math.random()*25)*1000);
+  // Then every 60-100s
+  setInterval(_attemptBotChat,(60+Math.random()*40)*1000);
+}
+
+/* ══════════════════════════════════════
+   QUICK BUY (fills empty space in mine panel)
+══════════════════════════════════════ */
+function renderQuickBuy(){
+  const el=$('quickBuyGrid');if(!el)return;
+  const sorted=UPGRADES.map(u=>{
+    const cost=upgradeCost(u);
+    return{...u,cost,can:state.coins>=cost,lv:state.upgradeLevels[u.id]||0};
+  }).sort((a,b)=>{
+    if(a.can&&!b.can)return-1;if(!a.can&&b.can)return 1;return a.cost-b.cost;
+  }).slice(0,6);
+  el.innerHTML=sorted.map(u=>`<button class="qupg-card ${u.can?'affordable':'locked'}" data-uid="${u.id}"><span class="qupg-icon">${u.icon}</span><div class="qupg-info"><div class="qupg-name">${u.name}</div><div class="qupg-cost ${u.can?'':'cant'}">🪙${fmt(u.cost)}</div></div><span class="qupg-lv">Lv${u.lv}</span></button>`).join('');
+  el.querySelectorAll('.qupg-card').forEach(btn=>btn.addEventListener('click',()=>{buyUpgrade(btn.dataset.uid);renderQuickBuy();}));
 }
 
 /* ══════════════════════════════════════
@@ -480,6 +462,7 @@ function updateHUD(){
   const sp=$('mySeasonPts');if(sp)sp.textContent=fmt(state.seasonPoints||0);
   updateUpgradeCards('upgradesListDesktop');
   updateUpgradeCards('upgradesListMobile');
+  renderQuickBuy();
 }
 
 /* ══════════════════════════════════════
@@ -825,7 +808,7 @@ function showNPCOffer(offerType){
   $('npcAvatar').textContent=offer.npc;
   $('npcDesc').textContent=offer.desc;$('npcDealBox').textContent=offer.deal;
   npcTimeLeft=60;$('npcTimer').textContent=`Offer expires in ${npcTimeLeft}s`;
-  $('npcModal').classList.remove('hidden');SFX.event();addGameNotif(offer.npc,'Space Trader appeared!',offer.deal);
+  $('npcModal').classList.remove('hidden');SFX.event();addGameNotif(offer.npc,offer.name+' appeared!',offer.deal);
   clearInterval(npcTimer);
   npcTimer=setInterval(()=>{npcTimeLeft--;$('npcTimer').textContent=`Offer expires in ${npcTimeLeft}s`;if(npcTimeLeft<=0){clearInterval(npcTimer);$('npcModal').classList.add('hidden');npcOfferData=null;}},1000);
 }
@@ -1234,13 +1217,29 @@ function initTabs(){document.querySelectorAll('.mtab').forEach(tab=>tab.addEvent
 /* ══════════════════════════════════════
    SOUND TOGGLE / LANG / PWA
 ══════════════════════════════════════ */
+/* ══════════════════════════════════════
+   HEADER CONTROLS
+══════════════════════════════════════ */
+// Settings dropdown toggle
+let _settingsOpen=false;
+$('settingsBtn').addEventListener('click',()=>{
+  _settingsOpen=!_settingsOpen;
+  $('settingsDropdown').style.display=_settingsOpen?'flex':'none';
+});
+document.addEventListener('click',e=>{
+  if(_settingsOpen&&!e.target.closest('#settingsBtn')&&!e.target.closest('#settingsDropdown')){
+    _settingsOpen=false;$('settingsDropdown').style.display='none';
+  }
+});
 $('soundToggle').addEventListener('click',()=>{state.soundEnabled=!state.soundEnabled;$('soundToggle').textContent=state.soundEnabled?'🔊':'🔇';$('soundToggle').classList.toggle('active',!state.soundEnabled);});
 $('langToggle').addEventListener('click',()=>{const next=currentLang==='en'?'ru':'en';setLang(next);$('langToggle').textContent=next.toUpperCase();});
+$('enablePushBtn').addEventListener('click',async()=>{const ok=await fbRequestPush();if(ok){showToast('🔔 Push enabled!');$('enablePushBtn').textContent='✅';$('enablePushBtn').disabled=true;}else showToast('Push not allowed');});
+
+// Notification panel
 $('notifBtn').addEventListener('click',()=>{if(_notifPanelOpen)_closeNotifPanel();else _openNotifPanel();});
 $('notifOverlay').addEventListener('click',_closeNotifPanel);
 $('notifPanelClose').addEventListener('click',_closeNotifPanel);
 $('notifClearBtn').addEventListener('click',()=>{_notifQueue.length=0;_notifUnread=0;_updateNotifBadge();_renderNotifList();});
-$('enablePushBtn').addEventListener('click',async()=>{const ok=await fbRequestPush();if(ok){showToast('🔔 Push enabled!');$('enablePushBtn').textContent='✅ Push enabled';$('enablePushBtn').disabled=true;}else showToast('Push notifications not allowed');});
 
 /* ══════════════════════════════════════
    SAVE
@@ -1317,9 +1316,13 @@ async function startGame(uid, username){
   initDailyQuests();renderAchievements();renderCraft();updateHUD();checkAchievements();
 
   fbSetOnline(uid,username);
-  fbOnOnlineCount(n=>$('onlineCount').textContent=n);
-  fbOnOnlinePlayers(list=>{renderOnlinePlayers(list,'onlinePlayersSocial');renderOnlinePlayers(list,'onlinePlayers');});
-  fbOnLeaderboard(e=>{renderLeaderboard(e,'leaderboard');renderLeaderboard(e,'leaderboardStats');});
+  fbOnOnlineCount(n=>$('onlineCount').textContent=n+_getActiveBots().length);
+  fbOnOnlinePlayers(list=>{
+    const bots=_getBotOnlineList();
+    const all=[...list,...bots.filter(b=>!list.find(p=>p.key===b.id))];
+    renderOnlinePlayers(all,'onlinePlayersSocial');renderOnlinePlayers(all,'onlinePlayers');
+  });
+  fbOnLeaderboard(e=>{const aug=_buildAugmentedLeaderboard(e);renderLeaderboard(aug,'leaderboard');renderLeaderboard(aug,'leaderboardStats');});
   fbOnChat(msgs=>renderChat(msgs));
   fbListenNotifications(uid,handleNotification);
   fbOnClanLeaderboard(clans=>{
@@ -1339,7 +1342,7 @@ async function startGame(uid, username){
   requestAnimationFrame(tickParticles);
   setTimeout(triggerEvent,(2+Math.random()*4)*60000);
   scheduleNPC();
-  setTimeout(initBotSystem,3000); // init bots after 3s delay
+  initBotSystem();
 }
 
 /* ══════════════════════════════════════
