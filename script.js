@@ -43,6 +43,12 @@ const TECH_BRANCHES = [
     {id:'t_mem',   icon:'🧠',name:'COSMIC MEMORY',  desc:'Keep 5% coins on prestige',cost:200000,bonus:{keepCoins:0.05},requires:'t_soul'},
     {id:'t_legacy',icon:'🌟',name:'LEGACY BOOST',   desc:'+20% prestige mult', cost:1000000,bonus:{prestigeBonus:0.20},requires:'t_soul'},
   ]},
+  {id:'automation',name:'🤖 AUTOMATION',nodes:[
+    {id:'t_autobuy',    icon:'🛒',name:'AUTO-BUYER',      desc:'Buys cheapest upgrade every 30s', cost:75000,   bonus:{autoBuy:true},       requires:null},
+    {id:'t_autodrone',  icon:'⚡',name:'TURBO DRONE',     desc:'Auto-buyer every 10s instead',    cost:400000,  bonus:{autoBuyFast:true},   requires:'t_autobuy'},
+    {id:'t_casinodrone',icon:'🎰',name:'CASINO DRONE',    desc:'Random reward every 3 minutes',   cost:150000,  bonus:{casinoDrone:true},   requires:'t_autobuy'},
+    {id:'t_alchemist',  icon:'⚗️',name:'AUTO-ALCHEMIST',  desc:'Auto-crafts boosts every 30s',    cost:600000,  bonus:{autoAlchemist:true}, requires:'t_casinodrone'},
+  ]},
 ];
 
 const ARTIFACTS = [
@@ -102,11 +108,11 @@ const UPGRADES = [
 ];
 
 const PLANETS = [
-  {id:'terra',      emoji:'🌍',name:'TERRA NOVA',    desc:'Starting planet.',        cost:0,      bonus:{cpc:0.05}, x:50,y:50},
-  {id:'asteroid',   emoji:'☄️',name:'ASTEROID BELT', desc:'Metal-rich rocks.',       cost:500,    bonus:{cps:0.10}, x:22,y:28},
-  {id:'nebula',     emoji:'🌌',name:'NEBULA STATION',desc:'Exotic matter clouds.',   cost:10000,  bonus:{both:0.15},x:78,y:22},
-  {id:'dark',       emoji:'🌑',name:'DARK CORE',     desc:'Unstable but profitable.',cost:200000, bonus:{both:0.25},x:18,y:72},
-  {id:'singularity',emoji:'🌀',name:'SINGULARITY',   desc:'Edge of reality.',        cost:5000000,bonus:{both:0.50},x:82,y:75},
+  {id:'terra',      emoji:'🌍',name:'TERRA NOVA',    desc:'Starting planet. Generates Stardust.',   cost:0,      bonus:{cpc:0.05}, x:50,y:50, resource:{id:'stardust',   rps:1/600}},
+  {id:'asteroid',   emoji:'☄️',name:'ASTEROID BELT', desc:'Metal-rich rocks. More Stardust.',       cost:500,    bonus:{cps:0.10}, x:22,y:28, resource:{id:'stardust',   rps:1/360}},
+  {id:'nebula',     emoji:'🌌',name:'NEBULA STATION',desc:'Exotic matter. Generates Neb. Core.',    cost:10000,  bonus:{both:0.15},x:78,y:22, resource:{id:'nebcore',    rps:1/480}},
+  {id:'dark',       emoji:'🌑',name:'DARK CORE',     desc:'Unstable. Generates Void Crystals.',     cost:200000, bonus:{both:0.25},x:18,y:72, resource:{id:'voidcrystal',rps:1/900}},
+  {id:'singularity',emoji:'🌀',name:'SINGULARITY',   desc:'Edge of reality. All resource types.',  cost:5000000,bonus:{both:0.50},x:82,y:75, resource:{id:'voidcrystal',rps:1/480}},
 ];
 
 const SKINS=[
@@ -192,6 +198,7 @@ const state={
   coinsHistory:[], lastGraphCoins:0,
   raidMyDamage:0, loreRead:0,
   currentSeason:null, clanData:null,
+  loreShown:{},
 };
 
 /* ══════════════════════════════════════
@@ -214,12 +221,12 @@ function upgradeCost(u){return Math.floor(u.baseCost*Math.pow(u.costMult,state.u
    BONUS CALCULATIONS
 ══════════════════════════════════════ */
 function getTechBonus(){
-  const b={cpc:0,cps:0,crit:0,critMult:1,offline:0,resources:0,prestigeBonus:0,keepCoins:0,npcDiscount:0,luckyRes:false};
+  const b={cpc:0,cps:0,crit:0,critMult:1,offline:0,resources:0,prestigeBonus:0,keepCoins:0,npcDiscount:0,luckyRes:false,autoBuy:false,autoBuyFast:false,casinoDrone:false,autoAlchemist:false};
   TECH_BRANCHES.forEach(br=>br.nodes.forEach(n=>{
     if(!state.techResearched[n.id])return;
     Object.entries(n.bonus).forEach(([k,v])=>{
       if(k==='critMult')b.critMult*=v;
-      else if(k==='luckyRes')b.luckyRes=true;
+      else if(typeof v==="boolean")b[k]=b[k]||v;
       else if(k in b)b[k]+=v;
     });
   }));
@@ -292,119 +299,6 @@ function effectiveCPS(){
 }
 
 /* ══════════════════════════════════════
-   NOTIFICATION CENTER
-══════════════════════════════════════ */
-const _notifQueue=[];
-let _notifPanelOpen=false,_notifUnread=0;
-
-function addGameNotif(icon,title,body){
-  _notifQueue.unshift({icon,title,body,time:Date.now()});
-  if(_notifQueue.length>30)_notifQueue.pop();
-  _notifUnread++;_updateNotifBadge();
-  if(Notification.permission==='granted')fbLocalNotif(`${icon} ${title}`,body);
-  if(_notifPanelOpen)_renderNotifList();
-}
-function _updateNotifBadge(){
-  const b=$('notifBadge');if(!b)return;
-  if(_notifUnread>0){b.textContent=_notifUnread>9?'9+':_notifUnread;b.style.display='flex';}
-  else b.style.display='none';
-}
-function _timeAgo(ts){const d=Date.now()-ts;if(d<60000)return'just now';if(d<3600000)return Math.floor(d/60000)+'m ago';return Math.floor(d/3600000)+'h ago';}
-function _renderNotifList(){
-  const el=$('notifList');if(!el)return;
-  if(!_notifQueue.length){el.innerHTML='<div class="notif-empty">No notifications yet</div>';return;}
-  el.innerHTML=_notifQueue.map(n=>`<div class="notif-item"><span class="notif-item-icon">${n.icon}</span><div class="notif-item-body"><div class="notif-item-title">${escHTML(n.title)}</div><div class="notif-item-desc">${escHTML(n.body)}</div><div class="notif-item-time">${_timeAgo(n.time)}</div></div></div>`).join('');
-}
-function _openNotifPanel(){
-  _notifPanelOpen=true;_notifUnread=0;_updateNotifBadge();_renderNotifList();
-  $('notifPanel').classList.add('open');$('notifOverlay').classList.add('open');
-}
-function _closeNotifPanel(){
-  _notifPanelOpen=false;
-  $('notifPanel').classList.remove('open');$('notifOverlay').classList.remove('open');
-}
-
-/* ══════════════════════════════════════
-   BOT SYSTEM v6 — LOCAL AUGMENTATION
-   Bots show in UI locally (no Firebase lock needed).
-   Only bot CHAT goes to Firebase, throttled.
-══════════════════════════════════════ */
-const BOTS=[
-  {id:'bot_nova7',  name:'Nova_Seven',  coins:3200000},
-  {id:'bot_zara',   name:'Zara_Prime',  coins:1700000},
-  {id:'bot_kira',   name:'KiraX',       coins:920000},
-  {id:'bot_void',   name:'VoidPilot',   coins:450000},
-  {id:'bot_astro',  name:'AstroMike33', coins:195000},
-  {id:'bot_plasma', name:'PlasmaByte',  coins:88000},
-  {id:'bot_echo',   name:'EchoStrike',  coins:34000},
-  {id:'bot_luna',   name:'LunaHawk',    coins:12500},
-];
-const BOT_MSGS=[
-  'just hit 1M coins! 🎉','anyone doing the raid?','prestige #3 done ♻️',
-  'this game is so addictive lol','double day strat = auto miners',
-  'anyone in a clan yet?','just unlocked Singularity planet 🌀',
-  'my cps is wild rn 🚀','grind never stops bro',
-  'artifacts are op (in a good way)','jackpot in slots!! 🎰',
-  'meteor shower was totally worth it','dark core planet pays off',
-  'void crystals are RARE...','crafted phoenix core finally!',
-  'season grinding hard 🎭','click frenzy + prestige = insane',
-  'the tech tree goes DEEP','raid boss almost dead! attack!',
-  'who else top 10? 👀','just sent a gift lol 🎁',
-  'star forge upgrade = must buy','nebula station is cracked',
-  'new season starts soon right?','daily quests done — easy coins',
-];
-
-// Returns bots "online" at this moment — stable per 15min window
-function _getActiveBots(){
-  const slot=Math.floor(Date.now()/900000); // changes every 15min
-  const count=3+(slot%4); // 3–6 bots
-  return BOTS.slice(0,Math.min(count,BOTS.length));
-}
-function _getBotOnlineList(){
-  return _getActiveBots().map(b=>({key:b.id,name:b.name,isBot:true}));
-}
-function _buildAugmentedLeaderboard(real){
-  const botEntries=BOTS.map(b=>({name:b.name,totalCoins:b.coins,isBot:true}));
-  const merged=[...real];
-  botEntries.forEach(b=>{if(!merged.find(e=>e.name===b.name))merged.push(b);});
-  return merged.sort((a,b)=>b.totalCoins-a.totalCoins).slice(0,10);
-}
-function _attemptBotChat(){
-  if(!firebaseReady)return;
-  db.ref('bots/lastChat').transaction(last=>{
-    const now=Date.now();
-    if(last&&(now-last)<50000)return; // abort — too recent
-    return now;
-  }).then(res=>{
-    if(!res.committed)return;
-    const bot=BOTS[Math.floor(Math.random()*BOTS.length)];
-    const msg=BOT_MSGS[Math.floor(Math.random()*BOT_MSGS.length)];
-    fbSendChat(bot.name,msg,bot.id);
-  }).catch(()=>{});
-}
-function initBotSystem(){
-  // First chat after random 15-40s
-  setTimeout(_attemptBotChat,(15+Math.random()*25)*1000);
-  // Then every 60-100s
-  setInterval(_attemptBotChat,(60+Math.random()*40)*1000);
-}
-
-/* ══════════════════════════════════════
-   QUICK BUY (fills empty space in mine panel)
-══════════════════════════════════════ */
-function renderQuickBuy(){
-  const el=$('quickBuyGrid');if(!el)return;
-  const sorted=UPGRADES.map(u=>{
-    const cost=upgradeCost(u);
-    return{...u,cost,can:state.coins>=cost,lv:state.upgradeLevels[u.id]||0};
-  }).sort((a,b)=>{
-    if(a.can&&!b.can)return-1;if(!a.can&&b.can)return 1;return a.cost-b.cost;
-  }).slice(0,6);
-  el.innerHTML=sorted.map(u=>`<button class="qupg-card ${u.can?'affordable':'locked'}" data-uid="${u.id}"><span class="qupg-icon">${u.icon}</span><div class="qupg-info"><div class="qupg-name">${u.name}</div><div class="qupg-cost ${u.can?'':'cant'}">🪙${fmt(u.cost)}</div></div><span class="qupg-lv">Lv${u.lv}</span></button>`).join('');
-  el.querySelectorAll('.qupg-card').forEach(btn=>btn.addEventListener('click',()=>{buyUpgrade(btn.dataset.uid);renderQuickBuy();}));
-}
-
-/* ══════════════════════════════════════
    SOUND
 ══════════════════════════════════════ */
 let audioCtx=null;
@@ -462,7 +356,6 @@ function updateHUD(){
   const sp=$('mySeasonPts');if(sp)sp.textContent=fmt(state.seasonPoints||0);
   updateUpgradeCards('upgradesListDesktop');
   updateUpgradeCards('upgradesListMobile');
-  renderQuickBuy();
 }
 
 /* ══════════════════════════════════════
@@ -539,6 +432,10 @@ function spawnAutoFloat(){
 /* ══════════════════════════════════════
    AUTO TICK
 ══════════════════════════════════════ */
+// Planet resource accumulators
+const _planetResAcc={};
+// Drone timers (seconds)
+let _autoBuyTimer=0,_casinoTimer=0,_alchemistTimer=0;
 let lastTick=Date.now(),autoFloatTimer=0;
 function autoTick(){
   const now=Date.now(),dt=Math.min((now-lastTick)/1000,.1);lastTick=now;
@@ -549,7 +446,122 @@ function autoTick(){
     autoFloatTimer+=dt;if(autoFloatTimer>=2&&cps>=1){spawnAutoFloat();autoFloatTimer=0;}
     updateHUD();
   }
+
+  /* ── PLANET RESOURCE GENERATION ── */
+  const resMult=1+(getTechBonus().resources||0)+(getArtifactBonus().resources||0)+((getSeasonBonus().resources)||0);
+  let resChanged=false;
+  PLANETS.forEach(p=>{
+    if(!state.ownedPlanets[p.id]||!p.resource)return;
+    _planetResAcc[p.id]=(_planetResAcc[p.id]||0)+p.resource.rps*dt*resMult;
+    if(_planetResAcc[p.id]>=1){
+      const g=Math.floor(_planetResAcc[p.id]);_planetResAcc[p.id]-=g;
+      state.resources[p.resource.id]=(state.resources[p.resource.id]||0)+g;
+      resChanged=true;
+      const rInfo=RESOURCES.find(r=>r.id===p.resource.id);
+      if(Math.random()<0.25)showToast(`${p.emoji} +${g} ${rInfo?.name||p.resource.id}!`);
+    }
+  });
+  if(resChanged)renderCraft();
+
+  /* ── AUTOMATION DRONES ── */
+  const td=getTechBonus();
+  if(td.autoBuy||td.autoBuyFast){
+    _autoBuyTimer+=dt;
+    if(_autoBuyTimer>=(td.autoBuyFast?10:30)){_autoBuyTimer=0;_autoBuyDrone();}
+  }
+  if(td.casinoDrone){
+    _casinoTimer+=dt;
+    if(_casinoTimer>=180){_casinoTimer=0;_casinoDroneTick();}
+  }
+  if(td.autoAlchemist){
+    _alchemistTimer+=dt;
+    if(_alchemistTimer>=30){_alchemistTimer=0;_alchemistDroneTick();}
+  }
+
   requestAnimationFrame(autoTick);
+}
+
+/* ══════════════════════════════════════
+   AUTOMATION DRONE FUNCTIONS
+══════════════════════════════════════ */
+function _autoBuyDrone(){
+  const sorted=UPGRADES.map(u=>({...u,cost:upgradeCost(u)})).filter(u=>state.coins>=u.cost).sort((a,b)=>a.cost-b.cost);
+  if(!sorted.length)return;
+  const u=sorted[0];buyUpgrade(u.id);
+  showToast(`🛒 Auto-Buyer: ${u.icon} ${u.name} Lv${state.upgradeLevels[u.id]}`);
+}
+function _casinoDroneTick(){
+  const r=Math.random();
+  if(r<0.05){
+    const rew=Math.max(5000,Math.floor(state.coinsPerSecond*300));
+    state.coins+=rew;state.totalCoins+=rew;updateHUD();SFX.jackpot();
+    showToast(`🎰 Casino Drone JACKPOT! +${fmt(rew)}`);
+  } else if(r<0.30){
+    const rew=Math.max(1000,Math.floor(state.coinsPerSecond*60));
+    state.coins+=rew;state.totalCoins+=rew;updateHUD();SFX.slots();
+    showToast(`🎰 Casino Drone: +${fmt(rew)} coins`);
+  } else if(r<0.55){
+    const res=['stardust','nebcore','voidcrystal'][Math.floor(Math.random()*3)];
+    state.resources[res]=(state.resources[res]||0)+1;
+    const rInfo=RESOURCES.find(x=>x.id===res);
+    SFX.slots();showToast(`🎰 Casino Drone: +1 ${rInfo?.name||res}`);renderCraft();
+  }
+  // 45% = nothing (bad roll)
+  scheduleSave();
+}
+function _alchemistDroneTick(){
+  let crafted=false;
+  RECIPES.forEach(rec=>{
+    if(crafted)return;
+    const ok=Object.entries(rec.cost).every(([rid,amt])=>(state.resources[rid]||0)>=amt);
+    if(ok){doBasicCraft(rec.id);showToast(`⚗️ Auto-Alchemist: ${rec.icon} ${rec.name}`);crafted=true;}
+  });
+}
+
+/* ══════════════════════════════════════
+   LORE UNLOCK NOTIFICATIONS
+══════════════════════════════════════ */
+function checkLoreUnlocks(){
+  state.loreShown=state.loreShown||{};
+  LORE.forEach((ch,i)=>{
+    if(state.totalCoins>=ch.unlock&&!state.loreShown[i]){
+      state.loreShown[i]=true;
+      // Delay slightly so it doesn't fire during heavy init
+      setTimeout(()=>{
+        SFX.ach();
+        showToast(`${ch.icon} New chapter unlocked: ${ch.title}!`);
+        // Auto-open first-time chapter after toast
+        setTimeout(()=>{
+          if(!$('loreModal')?.classList?.contains('hidden')===false)return;
+          openLore(i);
+        },2000);
+      },1500);
+      try{localStorage.setItem('cc_loreShown',JSON.stringify(state.loreShown));}catch(e){}
+    }
+  });
+}
+
+/* ══════════════════════════════════════
+   ANTI-CHEAT — STATE VALIDATION
+══════════════════════════════════════ */
+function validateStateBeforeSave(){
+  // Current coins can't be more than total ever earned (sanity cap)
+  if(state.coins>state.totalCoins+state.coinsPerSecond*120+1e6){
+    state.coins=Math.min(state.coins,state.totalCoins);
+  }
+  if(state.coins<0)state.coins=0;
+  // Reasonable prestige limit
+  if(state.prestigeLevel>999)state.prestigeLevel=999;
+  // Resource caps (prevent absurd values)
+  Object.keys(state.resources).forEach(k=>{
+    if(state.resources[k]<0)state.resources[k]=0;
+    if(state.resources[k]>9999)state.resources[k]=9999;
+  });
+  // Upgrade level caps
+  Object.keys(state.upgradeLevels).forEach(k=>{
+    if(state.upgradeLevels[k]<0)state.upgradeLevels[k]=0;
+    if(state.upgradeLevels[k]>99999)state.upgradeLevels[k]=99999;
+  });
 }
 
 /* ══════════════════════════════════════
@@ -599,6 +611,21 @@ $('confirmPrestigeBtn').addEventListener('click',()=>{
 ══════════════════════════════════════ */
 function renderTechTree(){
   const el=$('techTree');if(!el)return;el.innerHTML='';
+
+  // Show active drone status
+  const td=getTechBonus();
+  const drones=[];
+  if(td.autoBuy||td.autoBuyFast)drones.push(`${td.autoBuyFast?'⚡':'🛒'} ${td.autoBuyFast?'Turbo':'Auto'}-Buyer`);
+  if(td.casinoDrone)drones.push('🎰 Casino Drone');
+  if(td.autoAlchemist)drones.push('⚗️ Auto-Alchemist');
+  if(drones.length){
+    const strip=document.createElement('div');
+    strip.style.cssText='margin-bottom:10px;padding:8px 12px;background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.12);border-radius:10px';
+    strip.innerHTML=`<div style="font-family:var(--font-d);font-size:8px;letter-spacing:2px;color:var(--text-sub);margin-bottom:6px">⚡ ACTIVE DRONES</div>`+
+      drones.map(d=>`<span class="drone-chip">${d}</span>`).join('');
+    el.appendChild(strip);
+  }
+
   TECH_BRANCHES.forEach(br=>{
     const sec=document.createElement('div');sec.className='tech-branch';
     sec.innerHTML=`<div class="tech-branch-title">${br.name}</div><div class="tech-nodes"></div>`;
@@ -709,7 +736,9 @@ function renderGalaxyMap(){
     const node=document.createElement('div');
     node.className='planet-node'+(owned?' owned':state.totalCoins<p.cost?' locked-planet':'');
     node.style.left=p.x+'%';node.style.top=p.y+'%';
-    node.innerHTML=`<span class="planet-emoji">${p.emoji}</span><div class="planet-label">${p.name}</div><div class="planet-price">${owned?'✅ OWNED':p.cost===0?'FREE':'🪙'+fmt(p.cost)}</div>`;
+    const resInfo=p.resource?RESOURCES.find(r=>r.id===p.resource.id):null;
+    const resBadge=resInfo?`<div class="planet-res-badge">${resInfo.emoji}</div>`:'';
+    node.innerHTML=`<span class="planet-emoji">${p.emoji}</span>${owned?resBadge:''}<div class="planet-label">${p.name}</div><div class="planet-price">${owned?'✅ OWNED':p.cost===0?'FREE':'🪙'+fmt(p.cost)}</div>`;
     node.addEventListener('click',()=>buyPlanet(p));map.appendChild(node);
   });
 }
@@ -808,7 +837,7 @@ function showNPCOffer(offerType){
   $('npcAvatar').textContent=offer.npc;
   $('npcDesc').textContent=offer.desc;$('npcDealBox').textContent=offer.deal;
   npcTimeLeft=60;$('npcTimer').textContent=`Offer expires in ${npcTimeLeft}s`;
-  $('npcModal').classList.remove('hidden');SFX.event();addGameNotif(offer.npc,offer.name+' appeared!',offer.deal);
+  $('npcModal').classList.remove('hidden');SFX.event();
   clearInterval(npcTimer);
   npcTimer=setInterval(()=>{npcTimeLeft--;$('npcTimer').textContent=`Offer expires in ${npcTimeLeft}s`;if(npcTimeLeft<=0){clearInterval(npcTimer);$('npcModal').classList.add('hidden');npcOfferData=null;}},1000);
 }
@@ -898,6 +927,7 @@ async function doUpgradeBuilding(bdId,newLvl,cost){
    ACHIEVEMENTS
 ══════════════════════════════════════ */
 function checkAchievements(){
+  checkLoreUnlocks();
   ACHIEVEMENTS.forEach(a=>{
     if(state.achievements[a.id])return;
     try{if(a.check(state)){state.achievements[a.id]=true;showAchievement(a);SFX.ach();renderAchievements();scheduleSave();}}catch(e){}
@@ -925,7 +955,7 @@ function renderQuests(){
     const pct=Math.min(100,(q.progress/q.target)*100),done=q.progress>=q.target;
     return`<div class="quest-card${done?' completed':''}"><div class="quest-header"><span class="quest-name">${q.icon} ${q.name}</span><span class="quest-reward">+${fmt(q.reward)}🪙</span></div><div class="quest-progress-bar"><div class="quest-progress-fill" style="width:${pct}%"></div></div><div class="quest-footer"><span class="quest-count">${fmt(q.progress)}/${fmt(q.target)}</span>${done&&!q.claimed?`<button class="quest-claim-btn" data-qi="${i}">${t('claim')}</button>`:q.claimed?`<span class="quest-claimed">${t('claimed')}</span>`:''}</div></div>`;
   }).join('');
-  el.querySelectorAll('.quest-claim-btn').forEach(btn=>btn.addEventListener('click',()=>{const q=state.dailyQuests.quests[+btn.dataset.qi];if(!q||q.claimed||q.progress<q.target)return;q.claimed=true;state.coins+=q.reward;state.totalCoins+=q.reward;addSeasonPts(25);renderQuests();updateHUD();SFX.ach();showToast(`🎉 Quest! +${fmt(q.reward)}`);addGameNotif('📋','Quest Complete!',`${q.name} — +${fmt(q.reward)} coins`);scheduleSave();}));
+  el.querySelectorAll('.quest-claim-btn').forEach(btn=>btn.addEventListener('click',()=>{const q=state.dailyQuests.quests[+btn.dataset.qi];if(!q||q.claimed||q.progress<q.target)return;q.claimed=true;state.coins+=q.reward;state.totalCoins+=q.reward;addSeasonPts(25);renderQuests();updateHUD();SFX.ach();showToast(`🎉 Quest! +${fmt(q.reward)}`);scheduleSave();}));
 }
 
 /* ══════════════════════════════════════
@@ -939,7 +969,7 @@ function triggerEvent(ev){
   const msg=ev.apply(state);
   eventActive=true;$('eventIcon').textContent=ev.icon;$('eventText').textContent=ev.name+' '+msg;
   $('eventBanner').style.display='flex';SFX.event();showToast(`${ev.icon} ${ev.name} — ${msg}`);
-  addEventLog(ev.icon,ev.name,msg);addSeasonPts(10);addGameNotif(ev.icon,ev.name,msg);
+  addEventLog(ev.icon,ev.name,msg);addSeasonPts(10);
   const season=getSeasonBonus(),tech=getTechBonus(),clan=getClanBonus();
   const dropChance=1+tech.resources+(clan.resources||0)+((season.resources||1)-1);
   if(ev.resource&&Math.random()<0.7*dropChance){state.resources[ev.resource]=(state.resources[ev.resource]||0)+1;showToast(`+1 ${RESOURCES.find(r=>r.id===ev.resource)?.emoji} resource!`);renderCraft();}
@@ -994,7 +1024,6 @@ function showRaidReward(myDmg,totalHp){
     else state.resources['stardust']=(state.resources['stardust']||0)+1;
     fbMarkRaidClaimed(state.uid);addSeasonPts(50);
     $('raidRewardModal').classList.add('hidden');updateHUD();renderCraft();SFX.jackpot();showToast('🎉 Raid reward!');
-    addGameNotif('🌍','Raid Complete!',`You earned +${fmt(coins)} coins from the raid`);
     state.achievements['raid1']=true;checkAchievements();scheduleSave();
   };
 }
@@ -1129,10 +1158,7 @@ function renderOnlinePlayers(list,elId='onlinePlayersSocial'){
   const el=$(elId);if(!el)return;
   const others=list.filter(p=>p.key!==state.uid);
   if(!others.length){el.innerHTML='<div class="lb-loading">No other pilots online</div>';return;}
-  el.innerHTML=others.map(p=>{
-    if(p.isBot)return`<div class="pilot-row"><span class="pilot-row-name">🤖 ${escHTML(p.name)}</span><span class="bot-tag">BOT</span></div>`;
-    return`<div class="pilot-row"><span class="pilot-row-name">👨‍🚀 ${escHTML(p.name)}</span><div class="pilot-row-btns"><button class="pilot-action-btn duel" data-key="${escHTML(p.key)}" data-name="${escHTML(p.name)}">⚔️</button><button class="pilot-action-btn" data-gk="${escHTML(p.key)}" data-gn="${escHTML(p.name)}">🎁</button></div></div>`;
-  }).join('');
+  el.innerHTML=others.map(p=>`<div class="pilot-row"><span class="pilot-row-name">👨‍🚀 ${escHTML(p.name)}</span><div class="pilot-row-btns"><button class="pilot-action-btn duel" data-key="${escHTML(p.key)}" data-name="${escHTML(p.name)}">⚔️</button><button class="pilot-action-btn" data-gk="${escHTML(p.key)}" data-gn="${escHTML(p.name)}">🎁</button></div></div>`).join('');
   el.querySelectorAll('.pilot-action-btn.duel').forEach(b=>b.addEventListener('click',()=>startDuel(b.dataset.key,b.dataset.name)));
   el.querySelectorAll('[data-gk]').forEach(b=>b.addEventListener('click',()=>openGiftModal(b.dataset.gk,b.dataset.gn)));
 }
@@ -1170,8 +1196,8 @@ $('giftClose').addEventListener('click',()=>$('giftModal').classList.add('hidden
 $('confirmGiftBtn').addEventListener('click',async()=>{const amt=parseInt($('giftAmount').value);if(!amt||amt<10){showToast('Min 10 coins');return;}if(amt>state.coins){showToast(t('notEnoughCoins'));return;}state.coins-=amt;updateHUD();const ok=await fbSendGift(state.username,giftTargetUID,amt);$('giftModal').classList.add('hidden');if(ok){state.achievements['sent_gift']=true;SFX.gift();showToast(`🎁 Sent ${fmt(amt)} coins!`);checkAchievements();scheduleSave();}else{state.coins+=amt;updateHUD();showToast('Failed to send gift');}});
 function handleNotification(data){
   if(!data)return;
-  if(data.type==='gift'){state.coins+=data.amount||0;state.totalCoins+=data.amount||0;updateHUD();SFX.gift();showToast(`🎁 ${data.from} sent ${fmt(data.amount)} coins!`);addGameNotif('🎁','Gift received!',`${data.from} sent you ${fmt(data.amount)} coins`);scheduleSave();}
-  if(data.type==='duel'){activeDuelKey=data.duelKey;$('duelChallenger').textContent=data.from;$('duelPrize').textContent=fmt(data.prize||500);$('duelModal').classList.remove('hidden');SFX.event();fbListenDuel(data.duelKey,handleDuelUpdate);addGameNotif('⚔️','Duel challenge!',`${data.from} challenges you for ${fmt(data.prize||500)} coins`);}
+  if(data.type==='gift'){state.coins+=data.amount||0;state.totalCoins+=data.amount||0;updateHUD();SFX.gift();showToast(`🎁 ${data.from} sent ${fmt(data.amount)} coins!`);scheduleSave();}
+  if(data.type==='duel'){activeDuelKey=data.duelKey;$('duelChallenger').textContent=data.from;$('duelPrize').textContent=fmt(data.prize||500);$('duelModal').classList.remove('hidden');SFX.event();fbListenDuel(data.duelKey,handleDuelUpdate);}
 }
 
 /* ══════════════════════════════════════
@@ -1217,29 +1243,9 @@ function initTabs(){document.querySelectorAll('.mtab').forEach(tab=>tab.addEvent
 /* ══════════════════════════════════════
    SOUND TOGGLE / LANG / PWA
 ══════════════════════════════════════ */
-/* ══════════════════════════════════════
-   HEADER CONTROLS
-══════════════════════════════════════ */
-// Settings dropdown toggle
-let _settingsOpen=false;
-$('settingsBtn').addEventListener('click',()=>{
-  _settingsOpen=!_settingsOpen;
-  $('settingsDropdown').style.display=_settingsOpen?'flex':'none';
-});
-document.addEventListener('click',e=>{
-  if(_settingsOpen&&!e.target.closest('#settingsBtn')&&!e.target.closest('#settingsDropdown')){
-    _settingsOpen=false;$('settingsDropdown').style.display='none';
-  }
-});
 $('soundToggle').addEventListener('click',()=>{state.soundEnabled=!state.soundEnabled;$('soundToggle').textContent=state.soundEnabled?'🔊':'🔇';$('soundToggle').classList.toggle('active',!state.soundEnabled);});
 $('langToggle').addEventListener('click',()=>{const next=currentLang==='en'?'ru':'en';setLang(next);$('langToggle').textContent=next.toUpperCase();});
-$('enablePushBtn').addEventListener('click',async()=>{const ok=await fbRequestPush();if(ok){showToast('🔔 Push enabled!');$('enablePushBtn').textContent='✅';$('enablePushBtn').disabled=true;}else showToast('Push not allowed');});
-
-// Notification panel
-$('notifBtn').addEventListener('click',()=>{if(_notifPanelOpen)_closeNotifPanel();else _openNotifPanel();});
-$('notifOverlay').addEventListener('click',_closeNotifPanel);
-$('notifPanelClose').addEventListener('click',_closeNotifPanel);
-$('notifClearBtn').addEventListener('click',()=>{_notifQueue.length=0;_notifUnread=0;_updateNotifBadge();_renderNotifList();});
+$('notifBtn').addEventListener('click',async()=>{const ok=await fbRequestPush();if(ok){showToast('🔔 Notifications enabled!');$('notifBtn').classList.add('active');}else showToast('Notifications not allowed');});
 
 /* ══════════════════════════════════════
    SAVE
@@ -1248,6 +1254,8 @@ let saveTimer=null;
 function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(doSave,6000);}
 function doSave(){
   if(!state.uid&&!state.username)return;
+  validateStateBeforeSave();
+  try{localStorage.setItem('cc_loreShown',JSON.stringify(state.loreShown||{}));}catch(e){}
   fbSavePlayer(state.uid||sanitiseKey(state.username),{
     name:state.username,coins:state.coins,totalCoins:state.totalCoins,
     coinsPerClick:state.coinsPerClick,coinsPerSecond:state.coinsPerSecond,
@@ -1313,16 +1321,14 @@ async function startGame(uid, username){
     showToast(`${t('newPilot')}: ${username}!`);
   }
   state.lastGraphCoins=state.totalCoins;
+  // Load lore progress from localStorage
+  try{state.loreShown=JSON.parse(localStorage.getItem('cc_loreShown')||'{}');}catch(e){state.loreShown={};}
   initDailyQuests();renderAchievements();renderCraft();updateHUD();checkAchievements();
 
   fbSetOnline(uid,username);
-  fbOnOnlineCount(n=>$('onlineCount').textContent=n+_getActiveBots().length);
-  fbOnOnlinePlayers(list=>{
-    const bots=_getBotOnlineList();
-    const all=[...list,...bots.filter(b=>!list.find(p=>p.key===b.id))];
-    renderOnlinePlayers(all,'onlinePlayersSocial');renderOnlinePlayers(all,'onlinePlayers');
-  });
-  fbOnLeaderboard(e=>{const aug=_buildAugmentedLeaderboard(e);renderLeaderboard(aug,'leaderboard');renderLeaderboard(aug,'leaderboardStats');});
+  fbOnOnlineCount(n=>$('onlineCount').textContent=n);
+  fbOnOnlinePlayers(list=>{renderOnlinePlayers(list,'onlinePlayersSocial');renderOnlinePlayers(list,'onlinePlayers');});
+  fbOnLeaderboard(e=>{renderLeaderboard(e,'leaderboard');renderLeaderboard(e,'leaderboardStats');});
   fbOnChat(msgs=>renderChat(msgs));
   fbListenNotifications(uid,handleNotification);
   fbOnClanLeaderboard(clans=>{
@@ -1331,7 +1337,7 @@ async function startGame(uid, username){
     const m=['🥇','🥈','🥉'];el.innerHTML=clans.map((c,i)=>`<div class="lb-row${c.name===state.clanId?' me':''}"><div class="lb-rank${i<3?' r'+(i+1):''}">${m[i]||i+1}</div><div class="lb-name">⚔️${escHTML(c.name)}</div><div class="lb-score">${fmt(c.total)}</div></div>`).join('');
   });
   fbPruneChat();fbListenNPCOffer(offer=>showNPCOffer(offer.type));
-  fbListenBroadcast(msg=>{$('broadcastStrip').style.display='flex';$('broadcastMsg').textContent=msg;addGameNotif('📢','Announcement',msg);setTimeout(()=>$('broadcastStrip').style.display='none',10000);});
+  fbListenBroadcast(msg=>{$('broadcastStrip').style.display='flex';$('broadcastMsg').textContent=msg;setTimeout(()=>$('broadcastStrip').style.display='none',10000);});
   fbListenGlobalEvent(ev=>{const eventDef=EVENTS.find(e=>e.id===ev.type);if(eventDef)triggerEvent(eventDef);});
   fbGetCurrentSeason(seasonData=>renderSeason(seasonData));
   if(state.clanId)loadClanData();
@@ -1342,7 +1348,6 @@ async function startGame(uid, username){
   requestAnimationFrame(tickParticles);
   setTimeout(triggerEvent,(2+Math.random()*4)*60000);
   scheduleNPC();
-  initBotSystem();
 }
 
 /* ══════════════════════════════════════

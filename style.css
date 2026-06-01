@@ -452,217 +452,37 @@ input{font-family:inherit}
 }
 
 
-/* ═══════════════════════════════════════════
-   HEADER REDESIGN
-═══════════════════════════════════════════ */
-.g-header { padding: 0 10px; gap: 6px; }
-.h-brand { font-size: 10px; letter-spacing: 2px; }
-.h-brand-text { display: inline; }
-.h-right { gap: 5px; }
-
-/* Settings dropdown */
-.settings-dropdown {
+/* ═══════════════════════════════════════
+   PLANET RESOURCE BADGE
+═══════════════════════════════════════ */
+.planet-node { position: relative; }
+.planet-res-badge {
   position: absolute;
-  top: var(--header-h);
-  right: 10px;
-  z-index: 110;
-  background: rgba(8,10,30,.97);
-  border: 1px solid var(--border-glow);
-  border-radius: 12px;
-  padding: 8px;
-  display: flex;
-  gap: 6px;
-  box-shadow: 0 8px 32px rgba(0,0,0,.5);
-  animation: dropIn .2s ease;
-}
-@keyframes dropIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
-.h-settings-btn { font-size: 14px; }
-
-/* Smaller pilot tag on mobile */
-.pilot-tag { max-width: 110px; padding: 4px 8px; font-size: 9px; gap: 3px; }
-.pilot-tag .season-indicator { font-size: 14px; filter: none; }
-
-/* ═══════════════════════════════════════════
-   MINE CENTER REDESIGN
-═══════════════════════════════════════════ */
-.mine-center {
-  gap: 7px;
-  padding: 10px 12px;
-  justify-content: flex-start;
-  overflow-y: auto;
-}
-
-/* Smaller coin on mobile */
-@media (max-width: 700px) {
-  .coin-btn { width: 145px; height: 145px; }
-  .coin-face { font-size: 58px; }
-  .coin-rings { inset: -46px; }
-  .ring.r1 { inset: 22px; }
-  .ring.r2 { inset: 6px; }
-  .ring.r3 { inset: -6px; }
-  #particleCanvas { width: 170px; height: 170px; }
-  .mine-center { gap: 6px; padding: 8px 10px; }
-}
-
-/* ═══════════════════════════════════════════
-   QUICK BUY SECTION
-═══════════════════════════════════════════ */
-.quick-buy-section {
-  width: 100%;
-  padding-top: 4px;
-}
-.quick-buy-label {
-  font-family: var(--font-d);
-  font-size: 8px;
-  letter-spacing: 3px;
-  color: var(--text-sub);
-  margin-bottom: 7px;
-  padding-bottom: 5px;
-  border-bottom: 1px solid var(--border);
-}
-.quick-buy-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 5px;
-}
-.qupg-card {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 9px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  transition: border-color .15s, transform .1s;
-  -webkit-tap-highlight-color: transparent;
-}
-.qupg-card.affordable { border-color: rgba(0,255,157,.3); }
-.qupg-card.locked { opacity: 0.4; }
-.qupg-card:active { transform: scale(.95); }
-.qupg-icon { font-size: 18px; flex-shrink: 0; line-height: 1; }
-.qupg-info { flex: 1; min-width: 0; }
-.qupg-name {
-  font-family: var(--font-d);
-  font-size: 7px;
-  letter-spacing: 0.5px;
-  color: var(--text);
-  margin-bottom: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.qupg-cost {
-  font-family: var(--font-d);
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--gold);
-}
-.qupg-cost.cant { color: var(--red); }
-.qupg-lv {
-  font-family: var(--font-d);
-  font-size: 8px;
-  color: var(--cyan);
-  flex-shrink: 0;
-}
-
-/* ═══════════════════════════════════════════
-   NOTIFICATION PANEL
-═══════════════════════════════════════════ */
-.notif-btn-wrap { position: relative; }
-.notif-badge {
-  position: absolute;
-  top: -5px; right: -5px;
-  background: #ff4466;
-  color: #fff;
-  font-family: var(--font-d);
-  font-size: 8px;
-  font-weight: 700;
-  min-width: 16px; height: 16px;
-  border-radius: 8px;
+  top: -4px; right: -4px;
+  font-size: 12px;
+  background: rgba(3,3,15,.9);
+  border: 1px solid rgba(0,212,255,.3);
+  border-radius: 50%;
+  width: 20px; height: 20px;
   display: flex; align-items: center; justify-content: center;
-  padding: 0 3px;
-  pointer-events: none;
-  z-index: 10;
-  animation: badgePop .2s ease;
+  animation: resGlow 2.5s ease-in-out infinite;
 }
-@keyframes badgePop { from{transform:scale(0)} to{transform:scale(1)} }
+@keyframes resGlow { 0%,100%{box-shadow:0 0 4px rgba(0,212,255,.3)} 50%{box-shadow:0 0 12px rgba(0,212,255,.6)} }
 
-.notif-panel-overlay {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,.5);
-  z-index: 200; display: none;
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-}
-.notif-panel-overlay.open { display: block; }
-
-.notif-panel {
-  position: fixed;
-  top: 0; right: 0;
-  width: min(340px, 100vw);
-  height: 100dvh;
-  background: #090c1e;
-  border-left: 1px solid rgba(0,212,255,.2);
-  z-index: 201;
-  display: flex; flex-direction: column;
-  transform: translateX(100%);
-  transition: transform .28s cubic-bezier(.4,0,.2,1);
-  box-shadow: -6px 0 36px rgba(0,0,0,.7);
-}
-.notif-panel.open { transform: translateX(0); }
-
-.notif-panel-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 16px;
-  border-bottom: 1px solid rgba(0,212,255,.1);
-  font-family: var(--font-d); font-size: 10px; letter-spacing: 2px;
-  color: var(--cyan); flex-shrink: 0;
-}
-.notif-clear-btn {
-  background: transparent;
-  border: 1px solid rgba(255,255,255,.12);
-  color: rgba(220,232,255,.4);
-  font-family: var(--font-d); font-size: 8px; letter-spacing: 1px;
-  padding: 4px 10px; border-radius: 6px; cursor: pointer; transition: .2s;
-}
-.notif-clear-btn:hover { border-color: var(--red); color: var(--red); }
-
-.notif-list { flex: 1; overflow-y: auto; padding: 4px 0; }
-.notif-list::-webkit-scrollbar { width: 3px; }
-.notif-list::-webkit-scrollbar-thumb { background: rgba(0,212,255,.2); border-radius: 2px; }
-.notif-empty { padding: 48px 16px; text-align: center; color: rgba(220,232,255,.3); font-size: 13px; }
-.notif-item {
-  display: flex; gap: 12px;
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(0,212,255,.06);
-  transition: background .15s;
-  animation: notifSlide .2s ease;
-}
-@keyframes notifSlide { from{opacity:0;transform:translateX(16px)} to{opacity:1;transform:none} }
-.notif-item:hover { background: rgba(0,212,255,.04); }
-.notif-item-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
-.notif-item-body { flex: 1; min-width: 0; }
-.notif-item-title { font-family: var(--font-d); font-size: 10px; letter-spacing: 1px; color: var(--text); margin-bottom: 3px; }
-.notif-item-desc { font-size: 12px; color: rgba(220,232,255,.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.notif-item-time { font-size: 10px; color: rgba(220,232,255,.28); margin-top: 3px; }
-
-/* ═══════════════════════════════════════════
-   BOT TAGS IN ONLINE LIST
-═══════════════════════════════════════════ */
-.bot-tag {
-  margin-left: auto;
-  font-family: var(--font-d); font-size: 8px; letter-spacing: 1px;
-  color: rgba(0,212,255,.7);
+/* ═══════════════════════════════════════
+   AUTOMATION DRONE CHIPS
+═══════════════════════════════════════ */
+.drone-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(0,212,255,.08);
   border: 1px solid rgba(0,212,255,.25);
-  border-radius: 4px; padding: 2px 6px;
-  flex-shrink: 0;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-family: var(--font-d);
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: var(--cyan);
+  margin: 2px;
+  animation: droneActive 2s ease-in-out infinite;
 }
-
-/* hide on mobile */
-@media (max-width: 700px) {
-  .h-brand-text { display: none; }
-  .h-brand::after { content: '⭐'; }
-}
+@keyframes droneActive { 0%,100%{opacity:.65} 50%{opacity:1} }
