@@ -119,7 +119,22 @@ function fbOnOnlinePlayers(cb) {
 function fbOnLeaderboard(cb) {
   if(!firebaseReady) { cb([]); return; }
   db.ref('players').orderByChild('totalCoins').limitToLast(10).on('value', snap => {
-    const e = []; snap.forEach(c => { const d = c.val(); if(d?.name) e.push({ name: d.name, totalCoins: d.totalCoins || 0 }); });
+    const e = [];
+    snap.forEach(c => {
+      const d = c.val();
+      if(d?.name) e.push({
+        uid: c.key,
+        name: d.name,
+        totalCoins: d.totalCoins || 0,
+        prestigeLevel: d.prestigeLevel || 0,
+        achievements: d.achievements || {},
+        activeSkin: d.activeSkin || 'default',
+        clanId: d.clanId || null,
+        seasonPoints: d.seasonPoints || 0,
+        totalClicks: d.totalClicks || 0,
+        isBot: !!d.isBot,
+      });
+    });
     e.sort((a,b) => b.totalCoins - a.totalCoins); cb(e);
   }, () => cb([]));
 }
