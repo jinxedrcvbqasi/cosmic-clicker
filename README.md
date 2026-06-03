@@ -1,2 +1,1 @@
-cosmic clicker v7 (1 june updated)
-added : automation drones, anti cheat, lor notification, planet resources.
+v8 - added profile cards and fixed online
