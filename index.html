@@ -73,7 +73,11 @@
       <button class="icon-btn" id="notifBtn">🔔</button>
       <button class="icon-btn" id="langToggle">EN</button>
       <div class="pilot-tag" style="cursor:pointer" title="View your profile">
-        <span>👨‍🚀</span><span id="headerUsername">Pilot</span>
+        <span>👨‍🚀</span>
+        <div style="display:flex;flex-direction:column;align-items:flex-start;min-width:0">
+          <span id="headerUsername">Pilot</span>
+          <span id="headerTitle" style="display:none;font-size:7px;letter-spacing:1.5px;font-family:var(--font-d)">ROOKIE</span>
+        </div>
         <span class="prestige-badge" id="prestigeBadge" style="display:none">✦<span id="prestigeLevel">0</span></span>
       </div>
     </div>
@@ -127,6 +131,13 @@
           </div>
           <div id="prestigeWrap" style="display:none">
             <button class="prestige-btn" id="prestigeBtn">♻️ <span data-i18n="prestige">PRESTIGE</span> — ×<span id="prestigeMultShow">1.5</span></button>
+          </div>
+          <div id="voidShopWrap" style="display:none">
+            <button class="void-shop-btn" id="voidShopBtn">💜 VOID SHOP · <span id="voidShardsHud">0</span> shards</button>
+          </div>
+          <div class="streak-badge-strip" id="streakBadgeStrip" style="display:none">
+            🔥 <span id="streakBadgeNum">1</span>&nbsp;day streak!
+            <button class="streak-open-btn" id="streakOpenBtn">CLAIM →</button>
           </div>
           <div id="floatPortal"></div>
         </div>
@@ -413,15 +424,13 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<!-- PLAYER PROFILE MODAL -->
+<!-- PROFILE MODAL -->
 <div class="modal-overlay hidden" id="profileModal">
   <div class="profile-card">
-    <!-- Banner -->
     <div class="profile-banner" id="profileBanner">
       <div class="profile-banner-stars"></div>
       <button class="modal-close profile-close-btn" id="profileClose">✕</button>
     </div>
-    <!-- Avatar row -->
     <div class="profile-avatar-row">
       <div class="profile-avatar-wrap">
         <div class="profile-avatar" id="profileAvatar">🪙</div>
@@ -429,9 +438,9 @@
       </div>
       <div class="profile-action-btns" id="profileActionBtns"></div>
     </div>
-    <!-- Body -->
     <div class="profile-body">
       <div class="profile-name" id="profileName">PILOT</div>
+      <div id="profileTitleEl" style="display:none;font-family:var(--font-d);font-size:9px;letter-spacing:2px;margin-bottom:6px"></div>
       <div class="profile-tags-row">
         <span class="profile-prestige-tag" id="profilePrestigeTag" style="display:none">♻️ ×0</span>
         <span class="profile-clan-tag" id="profileClanTag" style="display:none">⚔️ CLAN</span>
@@ -441,6 +450,41 @@
       <div class="profile-badges-row" id="profileBadges"></div>
       <div class="profile-season-bar" id="profileSeasonBar" style="display:none"></div>
     </div>
+  </div>
+</div>
+
+<!-- STREAK MODAL -->
+<div class="modal-overlay hidden" id="streakModal">
+  <div class="modal-card streak-card">
+    <div class="streak-fire-big">🔥</div>
+    <div class="streak-title-row">DAY <span id="streakDayNum">1</span> STREAK!</div>
+    <div class="streak-week-row" id="streakWeekDays"></div>
+    <div class="streak-reward-box" id="streakRewardBox"></div>
+    <button class="launch-btn" style="width:100%;margin-top:8px" onclick="claimStreakReward()">🔥 CLAIM REWARD</button>
+    <button class="modal-close" style="position:absolute;top:12px;right:12px" onclick="$('streakModal').classList.add('hidden')">✕</button>
+  </div>
+</div>
+
+<!-- VOID SHOP MODAL -->
+<div class="modal-overlay hidden" id="voidShopModal">
+  <div class="modal-card void-shop-card">
+    <button class="modal-close" onclick="$('voidShopModal').classList.add('hidden')">✕</button>
+    <div class="vs-header">
+      <div class="vs-title">💜 VOID SHOP</div>
+      <div class="vs-balance">💜 <span id="voidShardsDisplay">0</span> Void Shards</div>
+    </div>
+    <p class="panel-sub" style="margin:0 0 12px">Earn Void Shards by prestiging. They never reset.</p>
+    <div class="vs-list" id="voidShopList"></div>
+  </div>
+</div>
+
+<!-- TITLES MODAL -->
+<div class="modal-overlay hidden" id="titlesModal">
+  <div class="modal-card titles-card">
+    <button class="modal-close" onclick="$('titlesModal').classList.add('hidden')">✕</button>
+    <div class="titles-header">🏷️ YOUR TITLES</div>
+    <p class="panel-sub" style="margin:0 0 14px">Tap a title to equip it</p>
+    <div class="titles-grid" id="titlesGrid"></div>
   </div>
 </div>
 

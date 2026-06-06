@@ -110,7 +110,7 @@ function fbOnOnlineCount(cb) {
 function fbOnOnlinePlayers(cb) {
   if(!firebaseReady) { cb([]); return; }
   db.ref('presence').on('value', snap => {
-    const l = []; snap.forEach(c => { const d = c.val(); if(d?.name) l.push({ key: c.key, name: d.name, isBot: !!d.isBot }); });
+    const l = []; snap.forEach(c => { const d = c.val(); if(d?.name) l.push({ key: c.key, name: d.name }); });
     cb(l);
   }, () => cb([]));
 }
@@ -122,18 +122,7 @@ function fbOnLeaderboard(cb) {
     const e = [];
     snap.forEach(c => {
       const d = c.val();
-      if(d?.name) e.push({
-        uid: c.key,
-        name: d.name,
-        totalCoins: d.totalCoins || 0,
-        prestigeLevel: d.prestigeLevel || 0,
-        achievements: d.achievements || {},
-        activeSkin: d.activeSkin || 'default',
-        clanId: d.clanId || null,
-        seasonPoints: d.seasonPoints || 0,
-        totalClicks: d.totalClicks || 0,
-        isBot: !!d.isBot,
-      });
+      if(d?.name) e.push({uid:c.key,name:d.name,totalCoins:d.totalCoins||0,prestigeLevel:d.prestigeLevel||0,achievements:d.achievements||{},activeSkin:d.activeSkin||'default',clanId:d.clanId||null,seasonPoints:d.seasonPoints||0,totalClicks:d.totalClicks||0,activeTitle:d.activeTitle||'rookie',isBot:!!d.isBot});
     });
     e.sort((a,b) => b.totalCoins - a.totalCoins); cb(e);
   }, () => cb([]));

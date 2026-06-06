@@ -173,6 +173,50 @@ const SLOTS_PAYTABLE=[
   {syms:['🪙','🪙','🪙'],mult:5,  label:'TRIPLE COIN'},
 ];
 
+const STREAK_REWARDS=[
+  {day:1,coins:500,   resource:null,          icon:'💰'},
+  {day:2,coins:1500,  resource:null,          icon:'💰'},
+  {day:3,coins:3000,  resource:'stardust',    icon:'✨'},
+  {day:4,coins:5000,  resource:null,          icon:'💰'},
+  {day:5,coins:8000,  resource:'nebcore',     icon:'💠'},
+  {day:6,coins:12000, resource:null,          icon:'💰'},
+  {day:7,coins:25000, resource:'voidcrystal', icon:'🔷'},
+];
+function getStreakReward(day){const c=Math.floor((day-1)/7),d=((day-1)%7),m=Math.pow(2,c),b=STREAK_REWARDS[d];return{...b,coins:b.coins*m,dayInCycle:d+1};}
+
+const VOID_SHOP=[
+  {id:'vs_cpc',  name:'Void CPC',     icon:'👆',desc:'Permanent +10% per click',   cost:20,max:5,  bonus:{cpc:0.10}},
+  {id:'vs_cps',  name:'Void CPS',     icon:'⚡',desc:'Permanent +10% per second',  cost:20,max:5,  bonus:{cps:0.10}},
+  {id:'vs_keep', name:'Coin Keeper',  icon:'💾',desc:'Keep 2% coins on prestige',  cost:80,max:3,  bonus:{keepCoins:0.02}},
+  {id:'vs_off',  name:'Offline Boost',icon:'💤',desc:'Offline income +50%',        cost:35,max:3,  bonus:{offline:0.5}},
+  {id:'vs_t1',   name:'VOID HUNTER',  icon:'🏷️',desc:'Exclusive title',            cost:40,max:1,  isTitle:true,titleId:'void_hunter'},
+  {id:'vs_t2',   name:'GALACTIC EMPEROR',icon:'👑',desc:'Legendary title',        cost:100,max:1, isTitle:true,titleId:'galactic_emperor'},
+  {id:'vs_frame',name:'Void Frame',   icon:'✨',desc:'Glowing avatar frame',       cost:60,max:1,  isFrame:true},
+];
+function getVoidShopBonus(){
+  const b={cpc:0,cps:0,keepCoins:0,offline:0};
+  VOID_SHOP.forEach(item=>{
+    const owned=state.voidShopPurchased?.[item.id]||0;
+    if(!owned||!item.bonus)return;
+    Object.entries(item.bonus).forEach(([k,v])=>{if(k in b)b[k]+=v*owned;});
+  });
+  return b;
+}
+
+const TITLES=[
+  {id:'rookie',         name:'ROOKIE',           color:'#8899aa',unlock:null},
+  {id:'miner',          name:'MINER',            color:'#cd7f32',unlock:{coins:10000}},
+  {id:'star_seeker',    name:'STAR SEEKER',      color:'#c0c0c0',unlock:{coins:1000000}},
+  {id:'click_legend',   name:'CLICK LEGEND',     color:'#ffd700',unlock:{clicks:10000}},
+  {id:'void_master',    name:'VOID MASTER',      color:'#b400ff',unlock:{prestige:1}},
+  {id:'galaxy_overlord',name:'GALAXY OVERLORD',  color:'#00d4ff',unlock:{coins:1e9}},
+  {id:'cosmic_god',     name:'COSMIC GOD',       color:'#ff8c00',unlock:{prestige:10}},
+  {id:'raid_slayer',    name:'RAID SLAYER',      color:'#ff4466',unlock:{achievement:'raid1'}},
+  {id:'void_hunter',    name:'VOID HUNTER',      color:'#7c4dff',unlock:{shop:true}},
+  {id:'galactic_emperor',name:'GALACTIC EMPEROR',color:'#ffa000',unlock:{shop:true}},
+];
+function getActiveTitleData(){return TITLES.find(t=>t.id===(state.activeTitle||'rookie'))||TITLES[0];}
+
 /* ══════════════════════════════════════
    STATE
 ══════════════════════════════════════ */
@@ -192,6 +236,9 @@ const state={
   coinsHistory:[], lastGraphCoins:0,
   raidMyDamage:0, loreRead:0,
   currentSeason:null, clanData:null,
+  loginStreak:0, lastLoginDate:null, streakClaimedDate:null,
+  voidShards:0, totalVoidShards:0, voidShopPurchased:{},
+  activeTitle:'rookie', unlockedTitles:{rookie:true},
 };
 
 /* ══════════════════════════════════════
@@ -259,7 +306,7 @@ function recalcPlanetBonus(){
   state.planetBonus={cpc,cps};
 }
 function recalcStats(){
-  const tech=getTechBonus(),art=getArtifactBonus(),clan=getClanBonus(),season=getSeasonBonus();
+  const tech=getTechBonus(),art=getArtifactBonus(),clan=getClanBonus(),season=getSeasonBonus(),vs=getVoidShopBonus();
   let cpc=1,cps=0;
   UPGRADES.forEach(u=>{
     const l=state.upgradeLevels[u.id]||0;
@@ -268,8 +315,8 @@ function recalcStats(){
   });
   const pm=prestigeMult();
   const allMult=1+art.allIncome;
-  const cpcBonus=1+tech.cpc+art.cpc+(clan.cpc||0)+(season.cpc||0);
-  const cpsBonus=1+tech.cps+(clan.cps||0)+(season.cps||0);
+  const cpcBonus=1+tech.cpc+art.cpc+(clan.cpc||0)+(season.cpc||0)+vs.cpc;
+  const cpsBonus=1+tech.cps+(clan.cps||0)+(season.cps||0)+vs.cps;
   const pCPC=1+state.planetBonus.cpc,pCPS=1+state.planetBonus.cps;
   state.coinsPerClick=cpc*pm*pCPC*cpcBonus*allMult;
   state.coinsPerSecond=cps*pm*pCPS*cpsBonus*allMult;
@@ -292,50 +339,30 @@ function effectiveCPS(){
 }
 
 /* ══════════════════════════════════════
-   BOT SYSTEM v6 — LOCAL AUGMENTATION
+   BOT SYSTEM v6
 ══════════════════════════════════════ */
 const BOTS=[
-  {id:'bot_nova7',  name:'Nova_Seven',  coins:3200000, prestige:4, skin:'sun',    clan:'VoidLegion', clicks:185000},
-  {id:'bot_zara',   name:'Zara_Prime',  coins:1700000, prestige:3, skin:'star',   clan:'VoidLegion', clicks:92000},
-  {id:'bot_kira',   name:'KiraX',       coins:920000,  prestige:2, skin:'crystal',clan:null,         clicks:54000},
-  {id:'bot_void',   name:'VoidPilot',   coins:450000,  prestige:1, skin:'moon',   clan:'StarForge',  clicks:31000},
-  {id:'bot_astro',  name:'AstroMike33', coins:195000,  prestige:1, skin:'default',clan:'StarForge',  clicks:18000},
-  {id:'bot_plasma', name:'PlasmaByte',  coins:88000,   prestige:0, skin:'gem',    clan:null,         clicks:8400},
-  {id:'bot_echo',   name:'EchoStrike',  coins:34000,   prestige:0, skin:'default',clan:null,         clicks:3200},
-  {id:'bot_luna',   name:'LunaHawk',    coins:12500,   prestige:0, skin:'default',clan:null,         clicks:1100},
+  {id:'bot_nova7',  name:'Nova_Seven',  coins:3200000,prestige:4,skin:'sun',   clan:'VoidLegion',clicks:185000},
+  {id:'bot_zara',   name:'Zara_Prime',  coins:1700000,prestige:3,skin:'star',  clan:'VoidLegion',clicks:92000},
+  {id:'bot_kira',   name:'KiraX',       coins:920000, prestige:2,skin:'crystal',clan:null,       clicks:54000},
+  {id:'bot_void',   name:'VoidPilot',   coins:450000, prestige:1,skin:'moon',  clan:'StarForge', clicks:31000},
+  {id:'bot_astro',  name:'AstroMike33', coins:195000, prestige:1,skin:'default',clan:'StarForge',clicks:18000},
+  {id:'bot_plasma', name:'PlasmaByte',  coins:88000,  prestige:0,skin:'gem',   clan:null,        clicks:8400},
+  {id:'bot_echo',   name:'EchoStrike',  coins:34000,  prestige:0,skin:'default',clan:null,       clicks:3200},
+  {id:'bot_luna',   name:'LunaHawk',    coins:12500,  prestige:0,skin:'default',clan:null,       clicks:1100},
 ];
-const BOT_MSGS=[
-  'just hit 1M coins! 🎉','anyone doing the raid?','prestige #3 done ♻️',
-  'this game is so addictive lol','double day strat = auto miners',
-  'anyone in a clan yet?','just unlocked Singularity planet 🌀',
-  'my cps is crazy rn 🚀','grind never stops bro',
-  'artifacts are op (in a good way)','jackpot in slots!! 🎰',
-  'meteor shower totally worth it','dark core planet pays off',
-  'void crystals are RARE...','crafted phoenix core finally!',
-  'season grinding hard 🎭','click frenzy + prestige = insane',
-  'the tech tree goes DEEP','raid boss almost dead! attack!',
-  'who else top 10? 👀','just sent a gift lol 🎁',
-  'star forge upgrade = must buy','nebula station is cracked',
-  'new season starts soon right?','daily quests done — easy coins',
-];
-function _getActiveBots(){const slot=Math.floor(Date.now()/900000);const count=3+(slot%4);return BOTS.slice(0,Math.min(count,BOTS.length));}
+const BOT_MSGS=['just hit 1M coins! 🎉','anyone doing the raid?','prestige done ♻️','this game is addictive lol','anyone in a clan yet?','just unlocked Singularity 🌀','my cps is wild 🚀','void crystals are RARE...','crafted phoenix core!','raid boss almost dead! attack!','daily quests done — easy coins','season grinding hard 🎭','click frenzy + prestige = insane','who else top 10? 👀','just sent a gift 🎁'];
+function _getActiveBots(){const s=Math.floor(Date.now()/900000);return BOTS.slice(0,3+(s%4));}
 function _getBotOnlineList(){return _getActiveBots().map(b=>({key:b.id,name:b.name,isBot:true}));}
 function _buildAugmentedLeaderboard(real){
-  const botEntries=BOTS.map(b=>({uid:b.id,name:b.name,totalCoins:b.coins,prestigeLevel:b.prestige,achievements:{coins1m:b.coins>1e6,prestige1:b.prestige>0},activeSkin:b.skin,clanId:b.clan,seasonPoints:Math.floor(b.coins/500),totalClicks:b.clicks,isBot:true}));
-  const merged=[...real];
-  botEntries.forEach(b=>{if(!merged.find(e=>e.name===b.name))merged.push(b);});
+  const botE=BOTS.map(b=>({uid:b.id,name:b.name,totalCoins:b.coins,prestigeLevel:b.prestige,achievements:{coins1m:b.coins>1e6,prestige1:b.prestige>0},activeSkin:b.skin,clanId:b.clan,seasonPoints:Math.floor(b.coins/500),totalClicks:b.clicks,isBot:true,activeTitle:b.prestige>2?'void_master':b.prestige>0?'miner':'rookie'}));
+  const merged=[...real];botE.forEach(b=>{if(!merged.find(e=>e.name===b.name))merged.push(b);});
   return merged.sort((a,b)=>b.totalCoins-a.totalCoins).slice(0,10);
 }
 function _attemptBotChat(){
   if(!firebaseReady)return;
-  db.ref('bots/lastChat').transaction(last=>{
-    const now=Date.now();if(last&&(now-last)<50000)return;return now;
-  }).then(res=>{
-    if(!res.committed)return;
-    const bot=BOTS[Math.floor(Math.random()*BOTS.length)];
-    const msg=BOT_MSGS[Math.floor(Math.random()*BOT_MSGS.length)];
-    fbSendChat(bot.name,msg,bot.id);
-  }).catch(()=>{});
+  db.ref('bots/lastChat').transaction(last=>{const now=Date.now();if(last&&(now-last)<50000)return;return now;})
+    .then(res=>{if(!res.committed)return;const bot=BOTS[Math.floor(Math.random()*BOTS.length)];fbSendChat(bot.name,BOT_MSGS[Math.floor(Math.random()*BOT_MSGS.length)],bot.id);}).catch(()=>{});
 }
 function initBotSystem(){
   setTimeout(_attemptBotChat,(15+Math.random()*25)*1000);
@@ -345,87 +372,169 @@ function initBotSystem(){
 /* ══════════════════════════════════════
    PLAYER PROFILE SYSTEM
 ══════════════════════════════════════ */
-const PROFILE_BANNERS=[
-  'linear-gradient(135deg,#001a66 0%,#220055 100%)',   // default blue-purple
-  'linear-gradient(135deg,#003344 0%,#004422 100%)',   // teal-green  p1
-  'linear-gradient(135deg,#440011 0%,#220044 100%)',   // red-purple  p2
-  'linear-gradient(135deg,#443300 0%,#220055 100%)',   // gold-purple p3
-  'linear-gradient(135deg,#003300 0%,#002244 100%)',   // green-blue  p4
-  'linear-gradient(135deg,#330066 0%,#001144 100%)',   // deep purple p5
-  'linear-gradient(135deg,#550022 0%,#003333 100%)',   // crimson     p6
-  'linear-gradient(135deg,#333300 0%,#330044 100%)',   // golden      p7+
-];
+const PROFILE_BANNERS=['linear-gradient(135deg,#001a66,#220055)','linear-gradient(135deg,#003344,#004422)','linear-gradient(135deg,#440011,#220044)','linear-gradient(135deg,#443300,#220055)','linear-gradient(135deg,#003300,#002244)','linear-gradient(135deg,#330066,#001144)','linear-gradient(135deg,#550022,#003333)','linear-gradient(135deg,#333300,#330044)'];
 
 function openProfile(uid,name,data={}){
   const isSelf=uid===state.uid;
-  const d=isSelf?{
-    totalCoins:state.totalCoins,prestigeLevel:state.prestigeLevel,
-    achievements:state.achievements,totalClicks:state.totalClicks,
-    clanId:state.clanId,activeSkin:state.activeSkin,
-    seasonPoints:state.seasonPoints,isBot:false,
-  }:data;
-  const{totalCoins=0,prestigeLevel=0,achievements={},totalClicks=0,
-    clanId=null,activeSkin='default',seasonPoints=0,isBot=false}=d;
-
-  // Banner
+  const d=isSelf?{totalCoins:state.totalCoins,prestigeLevel:state.prestigeLevel,achievements:state.achievements,totalClicks:state.totalClicks,clanId:state.clanId,activeSkin:state.activeSkin,seasonPoints:state.seasonPoints,isBot:false,activeTitle:state.activeTitle}:data;
+  const{totalCoins=0,prestigeLevel=0,achievements={},totalClicks=0,clanId=null,activeSkin='default',seasonPoints=0,isBot=false,activeTitle='rookie'}=d;
   $('profileBanner').style.background=PROFILE_BANNERS[Math.min(prestigeLevel,PROFILE_BANNERS.length-1)];
-
-  // Avatar
-  const skin=SKINS.find(s=>s.id===activeSkin)||SKINS[0];
-  $('profileAvatar').textContent=skin.emoji;
-
-  // Name + tags
+  const skin=SKINS.find(s=>s.id===activeSkin)||SKINS[0];$('profileAvatar').textContent=skin.emoji;
   $('profileName').textContent=name;
   const ptag=$('profilePrestigeTag');
-  if(prestigeLevel>0){ptag.textContent=`♻️ PRESTIGE ×${prestigeLevel}`;ptag.style.display='inline-flex';}
-  else ptag.style.display='none';
+  if(prestigeLevel>0){ptag.textContent=`♻️ PRESTIGE ×${prestigeLevel}`;ptag.style.display='inline-flex';}else ptag.style.display='none';
   const ctag=$('profileClanTag');
-  if(clanId){ctag.textContent=`⚔️ ${escHTML(clanId)}`;ctag.style.display='inline-flex';}
-  else ctag.style.display='none';
-
-  // Online dot
+  if(clanId){ctag.textContent=`⚔️ ${escHTML(clanId)}`;ctag.style.display='inline-flex';}else ctag.style.display='none';
+  // Title
+  const titleData=TITLES.find(t=>t.id===activeTitle)||TITLES[0];
+  const tel=$('profileTitleEl');
+  if(tel){tel.textContent=titleData.name;tel.style.color=titleData.color;tel.style.display=titleData.id!=='rookie'?'block':'none';}
   $('profileOnlineDot').style.display=isBot?'none':'block';
-
-  // Stats grid
-  $('profileStatsGrid').innerHTML=[
-    {lbl:'💰 TOTAL COINS',val:fmt(totalCoins),cls:'gold'},
-    {lbl:'♻️ PRESTIGE MULT',val:'×'+(1+prestigeLevel*0.5).toFixed(1),cls:'purple'},
-    {lbl:'👆 TOTAL CLICKS',val:fmt(totalClicks),cls:'cyan'},
-    {lbl:'🌟 SEASON PTS',val:fmt(seasonPoints),cls:'orange-text'},
-  ].map(s=>`<div class="profile-stat"><div class="profile-stat-lbl">${s.lbl}</div><div class="profile-stat-val ${s.cls}">${s.val}</div></div>`).join('');
-
+  // Stats
+  $('profileStatsGrid').innerHTML=[{lbl:'💰 TOTAL COINS',val:fmt(totalCoins),cls:'gold'},{lbl:'♻️ PRESTIGE MULT',val:'×'+(1+prestigeLevel*0.5).toFixed(1),cls:'purple'},{lbl:'👆 TOTAL CLICKS',val:fmt(totalClicks),cls:'cyan'},{lbl:'🌟 SEASON PTS',val:fmt(seasonPoints),cls:'orange-text'}].map(s=>`<div class="profile-stat"><div class="profile-stat-lbl">${s.lbl}</div><div class="profile-stat-val ${s.cls}">${s.val}</div></div>`).join('');
   // Badges
   const unlocked=ACHIEVEMENTS.filter(a=>achievements[a.id]);
   const bel=$('profileBadges');
-  if(!unlocked.length){bel.innerHTML='<span class="profile-no-badges">No badges yet</span>';}
-  else{bel.innerHTML=unlocked.slice(0,16).map(a=>`<div class="profile-badge" title="${escHTML(a.name+': '+a.desc)}"><span>${a.icon}</span><div class="profile-badge-tip">${escHTML(a.name)}</div></div>`).join('');}
-
+  bel.innerHTML=unlocked.length?unlocked.slice(0,16).map(a=>`<div class="profile-badge" title="${escHTML(a.name)}"><span>${a.icon}</span><div class="profile-badge-tip">${escHTML(a.name)}</div></div>`).join(''):'<span class="profile-no-badges">No badges yet</span>';
   // Season bar
   const sbar=$('profileSeasonBar');
-  if(state.currentSeason){
-    const s=SEASONS[state.currentSeason.index];
-    sbar.innerHTML=`<span>${s.emoji}</span><span>${s.name}</span><span class="profile-season-pts">${fmt(seasonPoints)} pts</span>`;
-    sbar.style.display='flex';
-  }else sbar.style.display='none';
-
-  // Action buttons
+  if(state.currentSeason){const s=SEASONS[state.currentSeason.index];sbar.innerHTML=`<span>${s.emoji}</span><span>${s.name}</span><span class="profile-season-pts">${fmt(seasonPoints)} pts</span>`;sbar.style.display='flex';}else sbar.style.display='none';
+  // Frame
+  const hasFrame=(state.voidShopPurchased?.vs_frame||0)>0&&isSelf;
+  $('profileAvatar').classList.toggle('void-frame',hasFrame);
+  // Actions
   const ael=$('profileActionBtns');
-  if(isSelf||isBot){ael.innerHTML=isSelf?`<div class="profile-own-tag">YOU</div>`:``;}
+  if(isSelf){ael.innerHTML=`<button class="profile-act-btn titles-btn" onclick="$('titlesModal').classList.remove('hidden');renderTitlesModal()">🏷️ Titles</button><div class="profile-own-tag">YOU</div>`;}
+  else if(isBot){ael.innerHTML='';}
   else{ael.innerHTML=`<button class="profile-act-btn gift-btn" id="profGiftBtn">🎁 Gift</button><button class="profile-act-btn duel-btn" id="profDuelBtn">⚔️ Duel</button>`;
     $('profGiftBtn').onclick=()=>{$('profileModal').classList.add('hidden');openGiftModal(uid,name);};
     $('profDuelBtn').onclick=()=>{$('profileModal').classList.add('hidden');startDuel(uid,name);};}
-
   $('profileModal').classList.remove('hidden');
 }
+function openBotProfile(botId){const bot=BOTS.find(b=>b.id===botId);if(!bot)return;openProfile(bot.id,bot.name,{totalCoins:bot.coins,prestigeLevel:bot.prestige,achievements:{coins1m:bot.coins>1e6,prestige1:bot.prestige>0,click1:true},totalClicks:bot.clicks,clanId:bot.clan,activeSkin:bot.skin,seasonPoints:Math.floor(bot.coins/500),isBot:true,activeTitle:bot.prestige>2?'void_master':bot.prestige>0?'miner':'rookie'});}
 
-function openBotProfile(botId){
-  const bot=BOTS.find(b=>b.id===botId);if(!bot)return;
-  openProfile(bot.id,bot.name,{
-    totalCoins:bot.coins,prestigeLevel:bot.prestige,
-    achievements:{coins1m:bot.coins>1e6,prestige1:bot.prestige>0,click1:true,coins10k:true},
-    totalClicks:bot.clicks,clanId:bot.clan,activeSkin:bot.skin,
-    seasonPoints:Math.floor(bot.coins/500),isBot:true,
+/* ══════════════════════════════════════
+   DAILY LOGIN STREAK
+══════════════════════════════════════ */
+function checkLoginStreak(){
+  const today=new Date().toISOString().slice(0,10);
+  if(state.lastLoginDate!==today){
+    const yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10);
+    state.loginStreak=(!state.lastLoginDate||state.lastLoginDate<yesterday)?1:(state.loginStreak||0)+1;
+    state.lastLoginDate=today;
+  }
+  _updateStreakUI();
+  if(state.streakClaimedDate!==today)setTimeout(showStreakModal,1000);
+}
+function _updateStreakUI(){
+  const strip=$('streakBadgeStrip');
+  if(strip)strip.style.display=state.loginStreak>0?'flex':'none';
+  const num=$('streakBadgeNum');if(num)num.textContent=state.loginStreak||1;
+  const vhud=$('voidShardsHud');if(vhud)vhud.textContent=state.voidShards||0;
+  const vwrap=$('voidShopWrap');if(vwrap)vwrap.style.display=(state.totalVoidShards>0)?'block':'none';
+  // Title in header
+  const htitle=$('headerTitle');if(htitle){const t=getActiveTitleData();if(t.id!=='rookie'){htitle.textContent=t.name;htitle.style.color=t.color;htitle.style.display='block';}else htitle.style.display='none';}
+}
+function showStreakModal(){
+  const day=state.loginStreak||1,rew=getStreakReward(day),d=rew.dayInCycle;
+  $('streakDayNum').textContent=day;
+  const week=$('streakWeekDays');
+  if(week)week.innerHTML=STREAK_REWARDS.map((r,i)=>{const n=i+1,past=n<d,today=n===d;return`<div class="streak-day${past?' done':''}${today?' today':''}"><div class="streak-day-icon">${past?'✅':r.icon}</div><div class="streak-day-lbl">D${n}</div></div>`;}).join('');
+  const rb=$('streakRewardBox');
+  if(rb)rb.innerHTML=`<div class="streak-rew-lbl">TODAY'S REWARD</div><div class="streak-rew-coins">+${fmt(rew.coins)} 💰</div>${rew.resource?`<div class="streak-rew-res">+1 ${rew.icon} ${rew.resource}</div>`:''}`;
+  $('streakModal').classList.remove('hidden');
+}
+function claimStreakReward(){
+  const today=new Date().toISOString().slice(0,10);
+  if(state.streakClaimedDate===today){$('streakModal').classList.add('hidden');return;}
+  const rew=getStreakReward(state.loginStreak||1);
+  state.coins+=rew.coins;state.totalCoins+=rew.coins;
+  if(rew.resource)state.resources[rew.resource]=(state.resources[rew.resource]||0)+1;
+  state.streakClaimedDate=today;
+  $('streakModal').classList.add('hidden');
+  SFX.gift();showToast(`🔥 Day ${state.loginStreak} reward! +${fmt(rew.coins)} coins${rew.resource?' + resource!':'!'}`);
+  updateHUD();scheduleSave();
+}
+
+/* ══════════════════════════════════════
+   VOID SHOP
+══════════════════════════════════════ */
+function buyVoidShopItem(itemId){
+  const item=VOID_SHOP.find(i=>i.id===itemId);if(!item)return;
+  const owned=state.voidShopPurchased?.[itemId]||0;
+  if(owned>=item.max){showToast('Already maxed!');return;}
+  if((state.voidShards||0)<item.cost){showToast('💜 Not enough Void Shards!');return;}
+  state.voidShards=(state.voidShards||0)-item.cost;
+  state.voidShopPurchased=state.voidShopPurchased||{};
+  state.voidShopPurchased[itemId]=owned+1;
+  if(item.isTitle){state.unlockedTitles=state.unlockedTitles||{};state.unlockedTitles[item.titleId]=true;showToast(`🏷️ Title unlocked: ${item.name}!`);}
+  else if(item.isFrame)showToast('✨ Void Frame equipped!');
+  else{SFX.buy();showToast(`💜 ${item.name} purchased!`);}
+  renderVoidShop();recalcStats();updateHUD();_updateStreakUI();scheduleSave();
+}
+function renderVoidShop(){
+  const list=$('voidShopList');if(!list)return;
+  const disp=$('voidShardsDisplay');if(disp)disp.textContent=state.voidShards||0;
+  list.innerHTML=VOID_SHOP.map(item=>{
+    const owned=state.voidShopPurchased?.[item.id]||0,maxed=owned>=item.max,can=(state.voidShards||0)>=item.cost;
+    return`<div class="vs-item${maxed?' vs-maxed':can?' vs-can':''}"><div class="vs-icon">${item.icon}</div><div class="vs-info"><div class="vs-name">${item.name}</div><div class="vs-desc">${item.desc}</div>${item.max>1?`<div class="vs-stack">${owned}/${item.max}</div>`:''}</div><button class="vs-buy-btn${maxed?' vs-maxed-btn':''}" onclick="buyVoidShopItem('${item.id}')"${maxed?'disabled':''}>${maxed?'✅':`💜 ${item.cost}`}</button></div>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════════
+   TITLES
+══════════════════════════════════════ */
+function checkUnlockTitles(){
+  state.unlockedTitles=state.unlockedTitles||{rookie:true};
+  TITLES.forEach(t=>{
+    if(state.unlockedTitles[t.id]||t.unlock?.shop)return;
+    const u=t.unlock;let ok=!u;
+    if(u?.coins&&state.totalCoins>=u.coins)ok=true;
+    if(u?.clicks&&state.totalClicks>=u.clicks)ok=true;
+    if(u?.prestige&&state.prestigeLevel>=u.prestige)ok=true;
+    if(u?.achievement&&state.achievements[u.achievement])ok=true;
+    if(ok){state.unlockedTitles[t.id]=true;setTimeout(()=>showToast(`🏷️ Title unlocked: ${t.name}!`),500);}
   });
+}
+function setActiveTitle(titleId){
+  if(!state.unlockedTitles?.[titleId]){showToast('Title not unlocked!');return;}
+  state.activeTitle=titleId;const t=TITLES.find(x=>x.id===titleId);
+  showToast(`🏷️ Title set: ${t?.name}`);renderTitlesModal();_updateStreakUI();scheduleSave();
+}
+function renderTitlesModal(){
+  const grid=$('titlesGrid');if(!grid)return;
+  const active=state.activeTitle||'rookie';
+  grid.innerHTML=TITLES.map(t=>{
+    const owned=state.unlockedTitles?.[t.id];const isActive=t.id===active;
+    return`<div class="title-card${owned?' title-owned':''}${isActive?' title-active':''}" onclick="${owned?`setActiveTitle('${t.id}')`:''}" style="${owned?`cursor:pointer`:'opacity:.4;cursor:default'}">
+      <div class="title-name-display" style="color:${owned?t.color:'#444'}">${t.name}</div>
+      <div class="title-status">${isActive?'✅ ON':owned?'TAP TO EQUIP':t.unlock?.shop?'💜 SHOP':'🔒'}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════════
+   LEADERBOARD + ONLINE PLAYERS (with bots)
+══════════════════════════════════════ */
+function renderLeaderboard(entries,elId='leaderboard',unit=''){
+  const el=$(elId);if(!el)return;
+  if(!entries?.length){el.innerHTML='<div class="lb-loading">No pilots yet!</div>';return;}
+  const m=['🥇','🥈','🥉'];
+  el.innerHTML=entries.map((e,i)=>`<div class="lb-row lb-clickable${e.name===state.username?' me':''}" data-idx="${i}"><div class="lb-rank${i<3?' r'+(i+1):''}">${m[i]||i+1}</div><div class="lb-name">${escHTML(e.name)}</div><div class="lb-score">${fmt(e.totalCoins)}${unit}</div></div>`).join('');
+  el.querySelectorAll('.lb-clickable').forEach((row,i)=>{const e=entries[i];row.addEventListener('click',()=>{if(e.isBot)openBotProfile(e.uid);else if(e.uid===state.uid)openProfile(state.uid,state.username);else if(e.uid)openProfile(e.uid,e.name,e);else openProfile('',e.name,e);});});
+}
+function renderOnlinePlayers(list,elId='onlinePlayersSocial'){
+  const el=$(elId);if(!el)return;
+  const others=list.filter(p=>p.key!==state.uid);
+  if(!others.length){el.innerHTML='<div class="lb-loading">No other pilots online</div>';return;}
+  el.innerHTML=others.map(p=>{
+    if(p.isBot)return`<div class="pilot-row pilot-row-click" data-bid="${escHTML(p.key)}"><span class="pilot-row-name">🤖 ${escHTML(p.name)}</span><span class="bot-tag">BOT</span></div>`;
+    return`<div class="pilot-row"><span class="pilot-row-name pilot-name-click" data-uid="${escHTML(p.key)}" data-name="${escHTML(p.name)}">👨‍🚀 ${escHTML(p.name)}</span><div class="pilot-row-btns"><button class="pilot-action-btn duel" data-key="${escHTML(p.key)}" data-name="${escHTML(p.name)}">⚔️</button><button class="pilot-action-btn" data-gk="${escHTML(p.key)}" data-gn="${escHTML(p.name)}">🎁</button></div></div>`;
+  }).join('');
+  el.querySelectorAll('[data-bid]').forEach(r=>r.addEventListener('click',()=>openBotProfile(r.dataset.bid)));
+  el.querySelectorAll('.pilot-name-click').forEach(r=>r.addEventListener('click',()=>fbLoadPlayer(r.dataset.uid).then(d=>openProfile(r.dataset.uid,r.dataset.name,d||{}))));
+  el.querySelectorAll('.pilot-action-btn.duel').forEach(b=>b.addEventListener('click',()=>startDuel(b.dataset.key,b.dataset.name)));
+  el.querySelectorAll('[data-gk]').forEach(b=>b.addEventListener('click',()=>openGiftModal(b.dataset.gk,b.dataset.gn)));
 }
 
 /* ══════════════════════════════════════
@@ -486,6 +595,7 @@ function updateHUD(){
   const sp=$('mySeasonPts');if(sp)sp.textContent=fmt(state.seasonPoints||0);
   updateUpgradeCards('upgradesListDesktop');
   updateUpgradeCards('upgradesListMobile');
+  _updateStreakUI();
 }
 
 /* ══════════════════════════════════════
@@ -609,12 +719,18 @@ $('prestigeBtn').addEventListener('click',()=>{
 });
 $('prestigeClose').addEventListener('click',()=>$('prestigeModal').classList.add('hidden'));
 $('confirmPrestigeBtn').addEventListener('click',()=>{
-  const keep=Math.floor(state.coins*(getTechBonus().keepCoins||0));
-  state.prestigeLevel++;state.coins=keep;state.upgradeLevels={};state.questUpgradesToday=0;
+  const vs=getVoidShopBonus();
+  const keep=Math.floor(state.coins*((getTechBonus().keepCoins||0)+(vs.keepCoins||0)));
+  state.prestigeLevel++;
+  const shards=state.prestigeLevel; // level 1→1 shard, level 2→2 shards, etc.
+  state.voidShards=(state.voidShards||0)+shards;
+  state.totalVoidShards=(state.totalVoidShards||0)+shards;
+  state.coins=keep;state.upgradeLevels={};state.questUpgradesToday=0;
   recalcStats();$('prestigeModal').classList.add('hidden');
   $('prestigeBadge').style.display='inline-flex';$('prestigeLevel').textContent=state.prestigeLevel;
-  SFX.prestige();addSeasonPts(100);showToast(`♻️ Prestige ${state.prestigeLevel}!`);
-  updateHUD();checkAchievements();scheduleSave();
+  SFX.prestige();addSeasonPts(100);
+  showToast(`♻️ Prestige ${state.prestigeLevel}! +${shards} 💜 Void Shards`);
+  checkUnlockTitles();updateHUD();checkAchievements();scheduleSave();
 });
 
 /* ══════════════════════════════════════
@@ -758,8 +874,6 @@ function openLore(idx){
   state.loreRead=Math.max(state.loreRead||0,idx+1);checkAchievements();scheduleSave();
 }
 $('loreClose').addEventListener('click',()=>$('loreModal').classList.add('hidden'));
-$('profileClose')?.addEventListener('click',()=>$('profileModal').classList.add('hidden'));
-document.getElementById('profileModal')?.addEventListener('click',e=>{if(e.target===e.currentTarget)$('profileModal').classList.add('hidden');});
 function renderLoreChapters(){
   // Add lore button to tech panel
   const techEl=$('techTree');if(!techEl)return;
@@ -923,6 +1037,7 @@ async function doUpgradeBuilding(bdId,newLvl,cost){
    ACHIEVEMENTS
 ══════════════════════════════════════ */
 function checkAchievements(){
+  checkUnlockTitles();
   ACHIEVEMENTS.forEach(a=>{
     if(state.achievements[a.id])return;
     try{if(a.check(state)){state.achievements[a.id]=true;showAchievement(a);SFX.ach();renderAchievements();scheduleSave();}}catch(e){}
@@ -1153,15 +1268,7 @@ function renderOnlinePlayers(list,elId='onlinePlayersSocial'){
   const el=$(elId);if(!el)return;
   const others=list.filter(p=>p.key!==state.uid);
   if(!others.length){el.innerHTML='<div class="lb-loading">No other pilots online</div>';return;}
-  el.innerHTML=others.map(p=>{
-    if(p.isBot)return`<div class="pilot-row pilot-row-clickable" data-bid="${escHTML(p.key)}"><span class="pilot-row-name">🤖 ${escHTML(p.name)}</span><span class="bot-tag">BOT</span></div>`;
-    return`<div class="pilot-row"><span class="pilot-row-name pilot-name-clickable" data-uid="${escHTML(p.key)}" data-name="${escHTML(p.name)}">👨‍🚀 ${escHTML(p.name)}</span><div class="pilot-row-btns"><button class="pilot-action-btn duel" data-key="${escHTML(p.key)}" data-name="${escHTML(p.name)}">⚔️</button><button class="pilot-action-btn" data-gk="${escHTML(p.key)}" data-gn="${escHTML(p.name)}">🎁</button></div></div>`;
-  }).join('');
-  el.querySelectorAll('[data-bid]').forEach(r=>r.addEventListener('click',()=>openBotProfile(r.dataset.bid)));
-  el.querySelectorAll('.pilot-name-clickable').forEach(r=>r.addEventListener('click',()=>{
-    const uid=r.dataset.uid,name=r.dataset.name;
-    fbLoadPlayer(uid).then(d=>openProfile(uid,name,d||{}));
-  }));
+  el.innerHTML=others.map(p=>`<div class="pilot-row"><span class="pilot-row-name">👨‍🚀 ${escHTML(p.name)}</span><div class="pilot-row-btns"><button class="pilot-action-btn duel" data-key="${escHTML(p.key)}" data-name="${escHTML(p.name)}">⚔️</button><button class="pilot-action-btn" data-gk="${escHTML(p.key)}" data-gn="${escHTML(p.name)}">🎁</button></div></div>`).join('');
   el.querySelectorAll('.pilot-action-btn.duel').forEach(b=>b.addEventListener('click',()=>startDuel(b.dataset.key,b.dataset.name)));
   el.querySelectorAll('[data-gk]').forEach(b=>b.addEventListener('click',()=>openGiftModal(b.dataset.gk,b.dataset.gn)));
 }
@@ -1173,16 +1280,7 @@ function renderLeaderboard(entries,elId='leaderboard',unit=''){
   const el=$(elId);if(!el)return;
   if(!entries?.length){el.innerHTML='<div class="lb-loading">No pilots yet!</div>';return;}
   const m=['🥇','🥈','🥉'];
-  el.innerHTML=entries.map((e,i)=>`<div class="lb-row lb-clickable${e.name===state.username?' me':''}" data-idx="${i}"><div class="lb-rank${i<3?' r'+(i+1):''}">${m[i]||i+1}</div><div class="lb-name">${escHTML(e.name)}</div><div class="lb-score">${fmt(e.totalCoins)}${unit}</div></div>`).join('');
-  el.querySelectorAll('.lb-clickable').forEach((row,i)=>{
-    const e=entries[i];
-    row.addEventListener('click',()=>{
-      if(e.isBot){openBotProfile(e.uid);}
-      else if(e.uid===state.uid){openProfile(state.uid,state.username);}
-      else if(e.uid){openProfile(e.uid,e.name,e);}
-      else openProfile('',e.name,e);
-    });
-  });
+  el.innerHTML=entries.map((e,i)=>`<div class="lb-row${e.name===state.username?' me':''}"><div class="lb-rank${i<3?' r'+(i+1):''}">${m[i]||i+1}</div><div class="lb-name">${escHTML(e.name)}</div><div class="lb-score">${fmt(e.totalCoins)}${unit}</div></div>`).join('');
 }
 
 /* ══════════════════════════════════════
@@ -1276,6 +1374,9 @@ function doSave(){
     techResearched:state.techResearched,equippedArtifacts:state.equippedArtifacts,forgedArtifacts:state.forgedArtifacts,
     seasonPoints:state.seasonPoints,seasonRewardClaimed:state.seasonRewardClaimed,
     loreRead:state.loreRead,
+    loginStreak:state.loginStreak||0,lastLoginDate:state.lastLoginDate||null,streakClaimedDate:state.streakClaimedDate||null,
+    voidShards:state.voidShards||0,totalVoidShards:state.totalVoidShards||0,voidShopPurchased:state.voidShopPurchased||{},
+    activeTitle:state.activeTitle||'rookie',unlockedTitles:state.unlockedTitles||{rookie:true},
   });
 }
 setInterval(doSave,30000);
@@ -1317,6 +1418,9 @@ async function startGame(uid, username){
       techResearched:data.techResearched||{},equippedArtifacts:data.equippedArtifacts||[],forgedArtifacts:data.forgedArtifacts||{},
       seasonPoints:data.seasonPoints||0,seasonRewardClaimed:data.seasonRewardClaimed||{},
       loreRead:data.loreRead||0,
+      loginStreak:data.loginStreak||0,lastLoginDate:data.lastLoginDate||null,streakClaimedDate:data.streakClaimedDate||null,
+      voidShards:data.voidShards||0,totalVoidShards:data.totalVoidShards||0,voidShopPurchased:data.voidShopPurchased||{},
+      activeTitle:data.activeTitle||'rookie',unlockedTitles:data.unlockedTitles||{rookie:true},
     });
     if(data.dailyQuests)state.dailyQuests=data.dailyQuests;
     const lastSeen=data.lastSeen;
@@ -1335,11 +1439,7 @@ async function startGame(uid, username){
 
   fbSetOnline(uid,username);
   fbOnOnlineCount(n=>$('onlineCount').textContent=n+_getActiveBots().length);
-  fbOnOnlinePlayers(list=>{
-    const bots=_getBotOnlineList();
-    const all=[...list,...bots.filter(b=>!list.find(p=>p.key===b.id))];
-    renderOnlinePlayers(all,'onlinePlayersSocial');renderOnlinePlayers(all,'onlinePlayers');
-  });
+  fbOnOnlinePlayers(list=>{const bots=_getBotOnlineList();const all=[...list,...bots.filter(b=>!list.find(p=>p.key===b.id))];renderOnlinePlayers(all,'onlinePlayersSocial');renderOnlinePlayers(all,'onlinePlayers');});
   fbOnLeaderboard(e=>{const aug=_buildAugmentedLeaderboard(e);renderLeaderboard(aug,'leaderboard');renderLeaderboard(aug,'leaderboardStats');});
   fbOnChat(msgs=>renderChat(msgs));
   fbListenNotifications(uid,handleNotification);
@@ -1360,9 +1460,17 @@ async function startGame(uid, username){
   requestAnimationFrame(tickParticles);
   setTimeout(triggerEvent,(2+Math.random()*4)*60000);
   scheduleNPC();
+  checkLoginStreak();
   initBotSystem();
-  // Pilot tag → own profile
+  // Pilot-tag → own profile
   document.querySelector('.pilot-tag')?.addEventListener('click',()=>openProfile(state.uid,state.username));
+  // Void shop button
+  $('voidShopBtn')?.addEventListener('click',()=>{renderVoidShop();$('voidShopModal').classList.remove('hidden');});
+  // Streak badge open
+  $('streakOpenBtn')?.addEventListener('click',()=>showStreakModal());
+  // Profile modal close
+  $('profileClose')?.addEventListener('click',()=>$('profileModal').classList.add('hidden'));
+  $('profileModal')?.addEventListener('click',e=>{if(e.target===e.currentTarget)$('profileModal').classList.add('hidden');});
 }
 
 /* ══════════════════════════════════════
