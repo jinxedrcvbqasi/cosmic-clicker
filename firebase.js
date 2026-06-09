@@ -119,11 +119,7 @@ function fbOnOnlinePlayers(cb) {
 function fbOnLeaderboard(cb) {
   if(!firebaseReady) { cb([]); return; }
   db.ref('players').orderByChild('totalCoins').limitToLast(10).on('value', snap => {
-    const e = [];
-    snap.forEach(c => {
-      const d = c.val();
-      if(d?.name) e.push({uid:c.key,name:d.name,totalCoins:d.totalCoins||0,prestigeLevel:d.prestigeLevel||0,achievements:d.achievements||{},activeSkin:d.activeSkin||'default',clanId:d.clanId||null,seasonPoints:d.seasonPoints||0,totalClicks:d.totalClicks||0,activeTitle:d.activeTitle||'rookie',isBot:!!d.isBot});
-    });
+    const e = []; snap.forEach(c => { const d = c.val(); if(d?.name) e.push({ name: d.name, totalCoins: d.totalCoins || 0 }); });
     e.sort((a,b) => b.totalCoins - a.totalCoins); cb(e);
   }, () => cb([]));
 }
@@ -335,6 +331,22 @@ function fbListenBroadcast(cb) {
 function fbListenGlobalEvent(cb) {
   if(!firebaseReady) return;
   db.ref('globalEvent').on('value', snap => { if(snap.val()) cb(snap.val()); }, () => {});
+}
+
+/* ═══════════════ REFERRAL ═══════════════ */
+function fbRewardReferrer(referrerName, newPlayerName) {
+  if(!firebaseReady || !referrerName) return;
+  db.ref('players').orderByChild('name').equalTo(referrerName).once('value', snap => {
+    snap.forEach(child => {
+      child.ref.child('voidShards').transaction(v => (v||0)+2);
+      child.ref.child('totalVoidShards').transaction(v => (v||0)+2);
+      child.ref.child('referralCount').transaction(v => (v||0)+1);
+      db.ref(`notifications/${child.key}/ref_${Date.now()}`).set({
+        type:'referral', from:newPlayerName,
+        time:firebase.database.ServerValue.TIMESTAMP,
+      }).catch(()=>{});
+    });
+  }).catch(()=>{});
 }
 
 /* ═══════════════ ANTICHEAT ═══════════════ */
